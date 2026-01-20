@@ -1,54 +1,94 @@
 ---
+# Base Configuration
 username: "<username>"
-
 docker_dir: /home/{{ username }}/docker_apps
 data_dir: /home/{{ username }}/data
-
 puid: "<puid>"
-
 pgid: "<pgid>"
-
 ip_address: "<server_ip>"
-
 timezone: "<timezone>"
-
 domain: "<domain_name>"
 
-cloudflare_email: "<cloudflare_email>"
-
-cloudflare_api_key: "<cloudflare_api_key>"
-
-traefik_basic_auth_hash: "<traefik_basic_auth_hash>"
-
-jwt_secret: "<jwt_secret>"
-
-authelia_sqlite_encryption_key: "<authelia_sqlite_encryption_key>"
-
-google_mail: "<google_email>"
-
-google_insecure_app_pass: "<google_insecure_app_pass>"
-
-authelia_admin_mail: "<authelia_admin_mail>"
-
-authelia_admin_argon2id_pass: "<authelia_admin_argon2id_pass>"
-
-wg_password: "<wg_pass>"
-
-codeserver_password: "<code_pass>"
-
-packages:
+# Step 1: Initial Setup - Base Packages
+base_packages:
   - unzip
   - wget
   - curl
   - git
   - python3
   - python3-pip
+  - vim
+  - htop
+  - net-tools
+  - software-properties-common
 
 pip_packages:
   - ansible
   - github3.py
   - docker
 
+# Step 1: GUI Applications (optional)
+install_gui_apps: false  # Set to true to install GUI apps
+gui_snap_packages:
+  - discord
+  - steam
+gui_packages:
+  - brave-browser  # Will be installed via apt repository
+  - cursor  # Will be downloaded manually
+
+# Step 2: Home Server Services
+deploy_immich: true
+deploy_samba: true
+deploy_jellyfin: true
+deploy_pihole: true
+
+# Immich Configuration
+immich_postgres_password: "<immich_postgres_password>"
+immich_typesense_api_key: "<immich_typesense_api_key>"
+
+# Samba Configuration
+samba_password: "<samba_password>"
+
+# Pi-hole Configuration
+pihole_password: "<pihole_password>"
+
+# Step 3: Monitoring and Security Services
+deploy_traefik: true  # Reverse proxy (required for most services)
+deploy_authelia: true  # Authentication (required for Traefik integration)
+deploy_portainer: true
+deploy_monitoring: true
+deploy_tailscale: false  # Set to true for Tailscale, false for Wireguard
+deploy_wireguard: false  # Set to true for Wireguard, false for Tailscale
+deploy_nginx_proxy_manager: false  # Set to true if you prefer NPM over Traefik
+deploy_uptime_kuma: true
+deploy_vaultwarden: true
+deploy_vnc: true
+deploy_coolify: true
+
+# Tailscale Configuration
+tailscale_auth_key: "<tailscale_auth_key>"  # Get from https://login.tailscale.com/admin/settings/keys
+
+# VNC Configuration
+vnc_password: "<vnc_password>"
+vnc_resolution: "1920x1080"
+
+# Coolify Configuration
+coolify_postgres_password: "<coolify_postgres_password>"
+
+# Traefik Configuration (if using Traefik instead of Nginx Proxy Manager)
+cloudflare_email: "<cloudflare_email>"
+cloudflare_api_key: "<cloudflare_api_key>"
+traefik_basic_auth_hash: "<traefik_basic_auth_hash>"
+
+# Authelia Configuration (if using Authelia)
+jwt_secret: "<jwt_secret>"
+authelia_sqlite_encryption_key: "<authelia_sqlite_encryption_key>"
+google_mail: "<google_email>"
+google_insecure_app_pass: "<google_insecure_app_pass>"
+authelia_admin_mail: "<authelia_admin_mail>"
+authelia_admin_argon2id_pass: "<authelia_admin_argon2id_pass>"
+
+# Docker Configuration
 docker_dependencies:
   - ca-certificates
   - gnupg
@@ -60,3 +100,84 @@ docker_packages:
   - containerd.io
   - docker-buildx-plugin
   - docker-compose-plugin
+
+# Step 4: Game Servers
+deploy_minecraft: true
+deploy_project_zomboid: true
+deploy_valheim: true
+deploy_discord_bot: true
+
+# Minecraft Configuration
+minecraft_version: "LATEST"  # or specific version like "1.20.1"
+minecraft_type: "VANILLA"  # VANILLA, FORGE, SPIGOT, PAPER, etc.
+minecraft_port: "25565"
+minecraft_rcon_port: "25575"
+minecraft_rcon_password: "<minecraft_rcon_password>"
+minecraft_memory: "2G"
+minecraft_max_memory: "4G"
+minecraft_motd: "A Minecraft Server"
+minecraft_server_name: "Minecraft Server"
+minecraft_max_players: "20"
+minecraft_online_mode: "true"
+minecraft_difficulty: "normal"
+minecraft_gamemode: "survival"
+minecraft_pvp: "true"
+minecraft_enable_rcon: "true"
+
+# Project Zomboid Configuration
+project_zomboid_port: "16261"
+project_zomboid_steam_port: "8766"
+project_zomboid_steam_query_port: "8767"
+project_zomboid_server_name: "Server"
+project_zomboid_admin_password: "<project_zomboid_admin_password>"
+project_zomboid_password: ""  # Leave empty for no password
+project_zomboid_max_players: "32"
+project_zomboid_pvp: "false"
+project_zomboid_public: "false"
+project_zomboid_public_name: "Project Zomboid Server"
+project_zomboid_description: "A Project Zomboid Server"
+project_zomboid_mods: ""
+project_zomboid_workshop_items: ""
+
+# Valheim Configuration
+valheim_port: "2456"
+valheim_query_port: "2457"
+valheim_server_name: "My Valheim Server"
+valheim_world_name: "Dedicated"
+valheim_password: "<valheim_password>"
+valheim_public: "1"  # 1 for public, 0 for private
+
+# Step 5: Botting Server
+deploy_poe_instance1: true
+deploy_poe_instance2: true
+enable_gpu_passthrough: false  # Set to true if you have NVIDIA GPU
+
+# Path of Exile Instance 1 Configuration
+poe_instance1_vnc_password: "<poe_instance1_vnc_password>"
+
+# Path of Exile Instance 2 Configuration
+poe_instance2_vnc_password: "<poe_instance2_vnc_password>"
+
+# Service Health Checks (for verification)
+service_health_checks:
+  - { port: 2283, host: "localhost", name: "Immich" }
+  - { port: 445, host: "localhost", name: "Samba" }
+  - { port: 8096, host: "localhost", name: "Jellyfin" }
+  - { port: 80, host: "localhost", name: "Pi-hole" }
+
+monitoring_health_checks:
+  - { port: 9000, host: "localhost", name: "Portainer" }
+  - { port: 9090, host: "localhost", name: "Prometheus" }
+  - { port: 3000, host: "localhost", name: "Grafana" }
+  - { port: 3001, host: "localhost", name: "Uptime Kuma" }
+  - { port: 81, host: "localhost", name: "Nginx Proxy Manager" }
+  - { port: 8000, host: "localhost", name: "Coolify" }
+
+game_server_health_checks:
+  - { port: 25565, host: "localhost", name: "Minecraft" }
+  - { port: 16261, host: "localhost", name: "Project Zomboid" }
+  - { port: 2456, host: "localhost", name: "Valheim" }
+
+botting_health_checks:
+  - { port: 5901, host: "localhost", name: "POE Instance 1 VNC" }
+  - { port: 5902, host: "localhost", name: "POE Instance 2 VNC" }

@@ -1,0 +1,50 @@
+---
+# Pi-hole - DNS and ad blocker
+
+- name: Create Pi-hole directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/pihole/etc-pihole"
+    - "{{ docker_dir }}/pihole/etc-dnsmasq.d"
+
+- name: Create Pi-hole container
+  community.docker.docker_container:
+    name: pihole
+    image: pihole/pihole:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ docker_dir }}/pihole/etc-pihole:/etc/pihole"
+      - "{{ docker_dir }}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d"
+    networks:
+      - name: homelab
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "80:80"
+      - "443:443"
+    env:
+      TZ: "{{ timezone }}"
+      WEBPASSWORD: "{{ pihole_password | default('changeme') }}"
+      DNS1: "1.1.1.1"
+      DNS2: "8.8.8.8"
+    cap_add:
+      - NET_ADMIN
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.pihole.entrypoints: "http"
+      traefik.http.routers.pihole.rule: "Host(`pihole.{{ domain }}`)"
+      traefik.http.middlewares.pihole-https-redirect.redirectscheme.scheme: "https"
+      traefik.http.routers.pihole.middlewares: "pihole-https-redirect"
+      traefik.http.routers.pihole-secure.entrypoints: "https"
+      traefik.http.routers.pihole-secure.rule: "Host(`pihole.{{ domain }}`)"
+      traefik.http.routers.pihole-secure.tls: "true"
+      traefik.http.routers.pihole-secure.service: "pihole"
+      traefik.http.routers.pihole-secure.middlewares: "authelia@docker"
+      traefik.http.services.pihole.loadbalancer.server.port: "80"
+      traefik.docker.network: "homelab"

@@ -1,0 +1,306 @@
+---
+# Step 1: Initial Setup
+# Installs all common libraries, tools, and programs needed
+# Includes: git, curl, docker, and GUI apps (Cursor, Discord, Steam, Brave)
+
+- name: Update system packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: full
+  when: ansible_distribution in ["Ubuntu", "Debian"]
+
+- name: Update dnf packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    update_only: true
+  when: ansible_distribution in ["Fedora", "CentOS", "RedHat"]
+
+- name: Install dnf-utils if on Fedora
+  ansible.builtin.package:
+    name: dnf-utils
+    state: present
+  when: ansible_distribution in ["Fedora", "CentOS", "RedHat"]
+
+- name: Check if reboot required on Ubuntu/Debian
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_required_file
+  when: ansible_distribution in ["Ubuntu", "Debian"]
+
+- name: Reboot if required on Ubuntu/Debian
+  ansible.builtin.reboot:
+    msg: Rebooting due to a kernel update
+  when: (ansible_distribution in ["Ubuntu", "Debian"]) and reboot_required_file.stat.exists
+
+- name: Check if reboot required on Fedora
+  ansible.builtin.command: needs-restarting -r
+  register: reboot_required
+  ignore_errors: true
+  changed_when: reboot_required.rc != 0
+  when: ansible_distribution in ["Fedora", "CentOS", "RedHat"]
+
+- name: Reboot if required on Fedora
+  ansible.builtin.reboot:
+    msg: Rebooting due to a kernel update
+  when: ansible_distribution in ["Fedora", "CentOS", "RedHat"] and reboot_required.rc == 1
+
+- name: Install base packages
+  ansible.builtin.package:
+    name: "{{ base_packages }}"
+    state: present
+
+- name: Install pip packages
+  ansible.builtin.pip:
+    name: "{{ pip_packages }}"
+    state: present
+    break_system_packages: true
+  when: ansible_distribution in ["Ubuntu", "Debian"]
+
+- name: Install pip packages (Fedora/CentOS)
+  ansible.builtin.pip:
+    name: "{{ pip_packages }}"
+    state: present
+  when: ansible_distribution in ["Fedora", "CentOS", "RedHat"]
+
+- name: Install Docker
+  ansible.builtin.include_tasks: tasks/docker.yml
+
+- name: Install snapd (Ubuntu/Debian)
+  ansible.builtin.package:
+    name: snapd
+    state: present
+  when: 
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Enable snapd socket (Ubuntu/Debian)
+  ansible.builtin.systemd:
+    name: snapd.socket
+    enabled: true
+    state: started
+  when: 
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Wait for snapd to be ready
+  ansible.builtin.wait_for:
+    path: /run/snapd.socket
+    state: present
+    timeout: 30
+  when: 
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Install GUI applications via Snap (Ubuntu/Debian)
+  ansible.builtin.snap:
+    name: "{{ item }}"
+    state: present
+    classic: true
+  loop: "{{ gui_snap_packages }}"
+  when: 
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Install snapd (Fedora)
+  ansible.builtin.package:
+    name: snapd
+    state: present
+  when:
+    - ansible_distribution in ["Fedora"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Enable snapd socket (Fedora)
+  ansible.builtin.systemd:
+    name: snapd.socket
+    enabled: true
+    state: started
+  when:
+    - ansible_distribution in ["Fedora"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Create symlink for snap (Fedora)
+  ansible.builtin.file:
+    src: /var/lib/snapd/snap
+    dest: /snap
+    state: link
+  when:
+    - ansible_distribution in ["Fedora"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Wait for snapd to be ready (Fedora)
+  ansible.builtin.wait_for:
+    path: /run/snapd.socket
+    state: present
+    timeout: 30
+  when:
+    - ansible_distribution in ["Fedora"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Install GUI applications via Snap (Fedora)
+  ansible.builtin.snap:
+    name: "{{ item }}"
+    state: present
+    classic: true
+  loop: "{{ gui_snap_packages }}"
+  when:
+    - ansible_distribution in ["Fedora"]
+    - install_gui_apps | default(false)
+    - gui_snap_packages | length > 0
+
+- name: Install Brave browser (Ubuntu/Debian)
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64,arm64] https://brave-browser-apt-release.s3.brave.com/ stable main"
+    state: present
+    filename: brave-browser
+  when:
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - "'brave-browser' in gui_packages | default([])"
+
+- name: Add Brave GPG key (Ubuntu/Debian)
+  ansible.builtin.apt_key:
+    url: https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    state: present
+  when:
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - "'brave-browser' in gui_packages | default([])"
+
+- name: Update apt cache after adding Brave repository
+  ansible.builtin.apt:
+    update_cache: true
+  when:
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - "'brave-browser' in gui_packages | default([])"
+
+- name: Install GUI packages via apt (Ubuntu/Debian)
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ gui_packages }}"
+  when:
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - install_gui_apps | default(false)
+    - gui_packages | length > 0
+
+- name: Add Brave repository (Fedora)
+  ansible.builtin.yum_repository:
+    name: brave-browser
+    description: Brave Browser Repository
+    baseurl: https://brave-browser-rpm-release.s3.brave.com/x86_64/
+    gpgcheck: true
+    gpgkey: https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+    enabled: true
+  when:
+    - ansible_distribution in ["Fedora", "CentOS", "RedHat"]
+    - install_gui_apps | default(false)
+    - "'brave-browser' in gui_packages | default([])"
+
+- name: Install GUI packages via dnf (Fedora/CentOS)
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ gui_packages }}"
+  when:
+    - ansible_distribution in ["Fedora", "CentOS", "RedHat"]
+    - install_gui_apps | default(false)
+    - gui_packages | length > 0
+
+- name: Download Cursor editor (if requested)
+  ansible.builtin.get_url:
+    url: "https://downloader.cursor.sh/linux/appImage/x64"
+    dest: "/tmp/cursor.AppImage"
+    mode: '0755'
+  when:
+    - install_gui_apps | default(false)
+    - "'cursor' in gui_packages | default([])"
+    - ansible_architecture == "x86_64"
+
+- name: Install Cursor to /opt
+  ansible.builtin.copy:
+    src: /tmp/cursor.AppImage
+    dest: /opt/cursor.AppImage
+    mode: '0755'
+    remote_src: true
+  when:
+    - install_gui_apps | default(false)
+    - "'cursor' in gui_packages | default([])"
+    - ansible_architecture == "x86_64"
+
+- name: Create applications directory
+  ansible.builtin.file:
+    path: "/home/{{ username }}/.local/share/applications"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: '0755'
+  when:
+    - install_gui_apps | default(false)
+    - "'cursor' in gui_packages | default([])"
+
+- name: Create Cursor desktop entry
+  ansible.builtin.copy:
+    content: |
+      [Desktop Entry]
+      Name=Cursor
+      Exec=/opt/cursor.AppImage
+      Icon=cursor
+      Type=Application
+      Categories=Development;TextEditor;
+      Terminal=false
+    dest: "/home/{{ username }}/.local/share/applications/cursor.desktop"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: '0644'
+  when:
+    - install_gui_apps | default(false)
+    - "'cursor' in gui_packages | default([])"
+
+- name: Verify GUI apps installation
+  ansible.builtin.debug:
+    msg: "GUI apps installation completed. Installed: {{ gui_snap_packages | default([]) + gui_packages | default([]) }}"
+  when: install_gui_apps | default(false)
+
+- name: Create base directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}"
+    - "{{ data_dir }}"
+    - "{{ data_dir }}/media"
+    - "{{ data_dir }}/photos"
+    - "{{ data_dir }}/shared"
+
+- name: Suppress login messages
+  ansible.builtin.file:
+    name: /home/{{ username }}/.hushlogin
+    mode: "0644"
+    state: touch
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Verify Docker installation
+  ansible.builtin.command: docker --version
+  register: docker_version
+  changed_when: false
+
+- name: Display Docker version
+  ansible.builtin.debug:
+    msg: "Docker installed: {{ docker_version.stdout }}"

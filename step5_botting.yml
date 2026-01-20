@@ -1,0 +1,115 @@
+---
+# Step 5: Botting Server
+# Sets up containers for running multiple game instances with remote control
+# Services: Game botting containers with VNC, script execution, GPU support
+
+- name: Install required packages for GPU support
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - nvidia-container-toolkit  # For NVIDIA GPU passthrough
+    - mesa-utils  # For OpenGL support
+  when: ansible_distribution in ["Ubuntu", "Debian"]
+  ignore_errors: true
+
+- name: Install NVIDIA container toolkit (Ubuntu/Debian)
+  ansible.builtin.shell: |
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+    curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+    curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+    sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+    sudo systemctl restart docker
+  when: 
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - enable_gpu_passthrough | default(false)
+  ignore_errors: true
+
+- name: Create botting directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/botting"
+    - "{{ docker_dir }}/botting/poe-instance-1"
+    - "{{ docker_dir }}/botting/poe-instance-2"
+    - "{{ docker_dir }}/botting/scripts"
+    - "{{ data_dir }}/botting"
+    - "{{ data_dir }}/botting/poe-instance-1"
+    - "{{ data_dir }}/botting/poe-instance-2"
+
+- name: Deploy Path of Exile Instance 1
+  ansible.builtin.include_tasks: tasks/poe_botting.yml
+  vars:
+    instance_number: 1
+    vnc_port: 5901
+    vnc_password: "{{ poe_instance1_vnc_password | default('changeme') }}"
+  when: deploy_poe_instance1 | default(true)
+
+- name: Deploy Path of Exile Instance 2
+  ansible.builtin.include_tasks: tasks/poe_botting.yml
+  vars:
+    instance_number: 2
+    vnc_port: 5902
+    vnc_password: "{{ poe_instance2_vnc_password | default('changeme') }}"
+  when: deploy_poe_instance2 | default(true)
+
+- name: Create botting control script
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # Botting Control Script
+      # Usage: ./botting-control.sh <instance> <action>
+      # Actions: start, stop, restart, status, vnc, exec
+      
+      INSTANCE=$1
+      ACTION=$2
+      
+      case $ACTION in
+        start)
+          docker start poe-instance-$INSTANCE
+          echo "Started Path of Exile instance $INSTANCE"
+          ;;
+        stop)
+          docker stop poe-instance-$INSTANCE
+          echo "Stopped Path of Exile instance $INSTANCE"
+          ;;
+        restart)
+          docker restart poe-instance-$INSTANCE
+          echo "Restarted Path of Exile instance $INSTANCE"
+          ;;
+        status)
+          docker ps | grep poe-instance-$INSTANCE
+          ;;
+        vnc)
+          echo "VNC connection: vnc://localhost:$((5900 + INSTANCE))"
+          echo "Password: Check group_vars/all/vars.yml"
+          ;;
+        exec)
+          docker exec -it poe-instance-$INSTANCE bash
+          ;;
+        *)
+          echo "Usage: $0 <instance_number> <start|stop|restart|status|vnc|exec>"
+          exit 1
+          ;;
+      esac
+    dest: "{{ docker_dir }}/botting/scripts/botting-control.sh"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: '0755'
+
+- name: Verify botting instances are running
+  ansible.builtin.wait_for:
+    port: "{{ item.port }}"
+    host: "{{ item.host | default('localhost') }}"
+    delay: 10
+    timeout: 60
+  loop: "{{ botting_health_checks | default([]) }}"
+  ignore_errors: true
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "Step 5 complete. Botting instances deployed. Use botting-control.sh to manage instances."

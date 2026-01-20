@@ -1,0 +1,171 @@
+---
+# Discord Bot Runner - Container for running Discord bots
+
+- name: Create Discord bot directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ data_dir }}/games/discord-bots"
+    - "{{ data_dir }}/games/discord-bots/bots"
+    - "{{ data_dir }}/games/discord-bots/logs"
+
+- name: Create Discord bot runner script
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # Discord Bot Runner Script
+      # Place your bot files in {{ data_dir }}/games/discord-bots/bots/
+      # Each bot should be in its own subdirectory
+      
+      BOT_DIR="{{ data_dir }}/games/discord-bots/bots"
+      LOG_DIR="{{ data_dir }}/games/discord-bots/logs"
+      
+      # Function to start a bot
+      start_bot() {
+        local BOT_NAME=$1
+        local BOT_PATH="$BOT_DIR/$BOT_NAME"
+        
+        if [ ! -d "$BOT_PATH" ]; then
+          echo "Bot directory not found: $BOT_PATH"
+          return 1
+        fi
+        
+        cd "$BOT_PATH"
+        
+        # Check if bot is already running
+        if docker ps | grep -q "discord-bot-$BOT_NAME"; then
+          echo "Bot $BOT_NAME is already running"
+          return 1
+        fi
+        
+        # Determine bot type and start accordingly
+        if [ -f "package.json" ]; then
+          # Node.js bot
+          docker run -d \
+            --name "discord-bot-$BOT_NAME" \
+            --restart unless-stopped \
+            --network homelab \
+            -v "$BOT_PATH:/app" \
+            -v "$LOG_DIR:/app/logs" \
+            -w /app \
+            node:18-alpine \
+            sh -c "npm install && node ."
+        elif [ -f "requirements.txt" ]; then
+          # Python bot
+          docker run -d \
+            --name "discord-bot-$BOT_NAME" \
+            --restart unless-stopped \
+            --network homelab \
+            -v "$BOT_PATH:/app" \
+            -v "$LOG_DIR:/app/logs" \
+            -w /app \
+            python:3.11-alpine \
+            sh -c "pip install -r requirements.txt && python ."
+        else
+          echo "Unknown bot type. Expected package.json or requirements.txt"
+          return 1
+        fi
+        
+        echo "Started bot: $BOT_NAME"
+      }
+      
+      # Function to stop a bot
+      stop_bot() {
+        local BOT_NAME=$1
+        docker stop "discord-bot-$BOT_NAME" 2>/dev/null
+        docker rm "discord-bot-$BOT_NAME" 2>/dev/null
+        echo "Stopped bot: $BOT_NAME"
+      }
+      
+      # Function to list bots
+      list_bots() {
+        echo "Available bots:"
+        ls -1 "$BOT_DIR" 2>/dev/null || echo "No bots found"
+        echo ""
+        echo "Running bots:"
+        docker ps --filter "name=discord-bot-" --format "table {{.Names}}\t{{.Status}}"
+      }
+      
+      # Main command handling
+      case "$1" in
+        start)
+          if [ -z "$2" ]; then
+            echo "Usage: $0 start <bot_name>"
+            exit 1
+          fi
+          start_bot "$2"
+          ;;
+        stop)
+          if [ -z "$2" ]; then
+            echo "Usage: $0 stop <bot_name>"
+            exit 1
+          fi
+          stop_bot "$2"
+          ;;
+        list)
+          list_bots
+          ;;
+        *)
+          echo "Usage: $0 {start|stop|list} [bot_name]"
+          exit 1
+          ;;
+      esac
+    dest: "{{ docker_dir }}/discord-bot/discord-bot-runner.sh"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: '0755'
+
+- name: Create Discord bot README
+  ansible.builtin.copy:
+    content: |
+      # Discord Bot Runner
+      
+      This container setup allows you to run Discord bots on your server.
+      
+      ## Setup
+      
+      1. Place your bot files in: {{ data_dir }}/games/discord-bots/bots/<bot_name>/
+      2. Each bot should be in its own subdirectory
+      3. Bot should have either:
+         - `package.json` (Node.js bot)
+         - `requirements.txt` (Python bot)
+      
+      ## Usage
+      
+      ```bash
+      # Start a bot
+      {{ docker_dir }}/discord-bot/discord-bot-runner.sh start <bot_name>
+      
+      # Stop a bot
+      {{ docker_dir }}/discord-bot/discord-bot-runner.sh stop <bot_name>
+      
+      # List bots
+      {{ docker_dir }}/discord-bot/discord-bot-runner.sh list
+      ```
+      
+      ## Example Bot Structure
+      
+      ```
+      {{ data_dir }}/games/discord-bots/bots/my-bot/
+      ├── package.json  # or requirements.txt
+      ├── index.js      # or main.py
+      ├── .env          # Bot token and config
+      └── ...
+      ```
+      
+      ## Environment Variables
+      
+      Create a `.env` file in your bot directory with:
+      ```
+      DISCORD_TOKEN=your_bot_token_here
+      ```
+      
+      The bot runner will automatically load environment variables from `.env` files.
+    dest: "{{ docker_dir }}/discord-bot/README.md"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0644"

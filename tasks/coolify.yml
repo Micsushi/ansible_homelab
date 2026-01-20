@@ -1,0 +1,92 @@
+---
+# Coolify - Self-hosted alternative to Vercel/Netlify
+
+- name: Create Coolify directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/coolify/data"
+    - "{{ docker_dir }}/coolify/postgres"
+    - "{{ docker_dir }}/coolify/redis"
+
+- name: Create Coolify docker-compose file
+  ansible.builtin.copy:
+    content: |
+      version: "3.8"
+
+      services:
+        coolify:
+          container_name: coolify
+          image: ghcr.io/coollabsio/coolify:latest
+          restart: unless-stopped
+          volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - {{ docker_dir }}/coolify/data:/data/coolify
+            - {{ docker_dir }}/coolify/postgres:/var/lib/postgresql/data
+          ports:
+            - "8000:8000"
+          environment:
+            - POSTGRES_USER=coolify
+            - POSTGRES_PASSWORD={{ coolify_postgres_password | default('changeme') }}
+            - POSTGRES_DB=coolify
+            - REDIS_URL=redis://redis:6379
+          depends_on:
+            - postgres
+            - redis
+          networks:
+            - homelab
+          labels:
+            traefik.enable: "true"
+            traefik.http.routers.coolify.entrypoints: "http"
+            traefik.http.routers.coolify.rule: "Host(`coolify.{{ domain }}`)"
+            traefik.http.middlewares.coolify-https-redirect.redirectscheme.scheme: "https"
+            traefik.http.routers.coolify.middlewares: "coolify-https-redirect"
+            traefik.http.routers.coolify-secure.entrypoints: "https"
+            traefik.http.routers.coolify-secure.rule: "Host(`coolify.{{ domain }}`)"
+            traefik.http.routers.coolify-secure.tls: "true"
+            traefik.http.routers.coolify-secure.service: "coolify"
+            traefik.http.routers.coolify-secure.middlewares: "authelia@docker"
+            traefik.http.services.coolify.loadbalancer.server.port: "8000"
+            traefik.docker.network: "homelab"
+
+        postgres:
+          container_name: coolify_postgres
+          image: postgres:14-alpine
+          restart: unless-stopped
+          volumes:
+            - {{ docker_dir }}/coolify/postgres:/var/lib/postgresql/data
+          environment:
+            - POSTGRES_USER=coolify
+            - POSTGRES_PASSWORD={{ coolify_postgres_password | default('changeme') }}
+            - POSTGRES_DB=coolify
+          networks:
+            - homelab
+
+        redis:
+          container_name: coolify_redis
+          image: redis:7-alpine
+          restart: unless-stopped
+          volumes:
+            - {{ docker_dir }}/coolify/redis:/data
+          networks:
+            - homelab
+
+      networks:
+        homelab:
+          external: true
+    dest: "{{ docker_dir }}/coolify/docker-compose.yml"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0644"
+
+- name: Deploy Coolify with docker-compose
+  community.docker.docker_compose:
+    project_src: "{{ docker_dir }}/coolify"
+    state: present
+    pull: true
+    recreate: always
+  become_user: "{{ username }}"

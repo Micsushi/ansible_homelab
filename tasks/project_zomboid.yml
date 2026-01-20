@@ -1,0 +1,50 @@
+---
+# Project Zomboid Server
+
+- name: Create Project Zomboid server config
+  ansible.builtin.copy:
+    content: |
+      # Project Zomboid Server Configuration
+      SteamWorkshop=1
+      Mods={{ project_zomboid_mods | default('') }}
+      WorkshopItems={{ project_zomboid_workshop_items | default('') }}
+      PauseEmpty={{ project_zomboid_pause_empty | default('true') }}
+      Open={{ project_zomboid_open | default('false') }}
+      PublicName={{ project_zomboid_public_name | default('Project Zomboid Server') }}
+      PublicDescription={{ project_zomboid_description | default('A Project Zomboid Server') }}
+      Public={{ project_zomboid_public | default('false') }}
+      ServerName={{ project_zomboid_server_name | default('Server') }}
+      MaxPlayers={{ project_zomboid_max_players | default('32') }}
+      PVP={{ project_zomboid_pvp | default('false') }}
+      Password={{ project_zomboid_password | default('') }}
+      AdminPassword={{ project_zomboid_admin_password | default('changeme') }}
+    dest: "{{ docker_dir }}/project-zomboid/server.ini"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0644"
+
+- name: Create Project Zomboid container
+  community.docker.docker_container:
+    name: project-zomboid
+    image: didstopia/project-zomboid:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ data_dir }}/games/project-zomboid:/home/steam/Zomboid"
+    networks:
+      - name: homelab
+    ports:
+      - "{{ project_zomboid_port | default('16261') }}:16261/udp"
+      - "{{ project_zomboid_port | default('16261') }}:16261/tcp"
+      - "{{ project_zomboid_steam_port | default('8766') }}:8766/udp"
+      - "{{ project_zomboid_steam_port | default('8766') }}:8766/tcp"
+      - "{{ project_zomboid_steam_query_port | default('8767') }}:8767/udp"
+      - "{{ project_zomboid_steam_query_port | default('8767') }}:8767/tcp"
+    env:
+      SERVER_NAME: "{{ project_zomboid_server_name | default('Server') }}"
+      ADMIN_PASSWORD: "{{ project_zomboid_admin_password | default('changeme') }}"
+      SERVER_PASSWORD: "{{ project_zomboid_password | default('') }}"
+      MAX_PLAYERS: "{{ project_zomboid_max_players | default('32') }}"
+      PVP: "{{ project_zomboid_pvp | default('false') }}"
+      PUBLIC: "{{ project_zomboid_public | default('false') }}"
+      TZ: "{{ timezone }}"

@@ -1,0 +1,61 @@
+---
+# Minecraft Server - Java Edition
+
+- name: Create Minecraft server.properties file
+  ansible.builtin.copy:
+    content: |
+      # Minecraft Server Properties
+      motd={{ minecraft_motd | default('A Minecraft Server') }}
+      server-name={{ minecraft_server_name | default('Minecraft Server') }}
+      max-players={{ minecraft_max_players | default('20') }}
+      online-mode={{ minecraft_online_mode | default('true') }}
+      difficulty={{ minecraft_difficulty | default('normal') }}
+      gamemode={{ minecraft_gamemode | default('survival') }}
+      spawn-protection={{ minecraft_spawn_protection | default('16') }}
+      enable-command-block={{ minecraft_enable_command_block | default('true') }}
+      white-list={{ minecraft_whitelist | default('false') }}
+      enforce-whitelist={{ minecraft_enforce_whitelist | default('false') }}
+      pvp={{ minecraft_pvp | default('true') }}
+      spawn-npcs={{ minecraft_spawn_npcs | default('true') }}
+      spawn-animals={{ minecraft_spawn_animals | default('true') }}
+      spawn-monsters={{ minecraft_spawn_monsters | default('true') }}
+      generate-structures={{ minecraft_generate_structures | default('true') }}
+      view-distance={{ minecraft_view_distance | default('10') }}
+      max-tick-time={{ minecraft_max_tick_time | default('60000') }}
+      enable-rcon={{ minecraft_enable_rcon | default('true') }}
+      rcon.port={{ minecraft_rcon_port | default('25575') }}
+      rcon.password={{ minecraft_rcon_password | default('changeme') }}
+    dest: "{{ docker_dir }}/minecraft/server.properties"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0644"
+
+- name: Create Minecraft container
+  community.docker.docker_container:
+    name: minecraft
+    image: itzg/minecraft-server:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ data_dir }}/games/minecraft:/data"
+      - "{{ docker_dir }}/minecraft/server.properties:/data/server.properties:ro"
+    networks:
+      - name: homelab
+    ports:
+      - "{{ minecraft_port | default('25565') }}:25565"
+      - "{{ minecraft_rcon_port | default('25575') }}:25575"
+    env:
+      EULA: "TRUE"
+      VERSION: "{{ minecraft_version | default('LATEST') }}"
+      TYPE: "{{ minecraft_type | default('VANILLA') }}"
+      MEMORY: "{{ minecraft_memory | default('2G') }}"
+      MAX_MEMORY: "{{ minecraft_max_memory | default('4G') }}"
+      ENABLE_RCON: "{{ minecraft_enable_rcon | default('true') }}"
+      RCON_PASSWORD: "{{ minecraft_rcon_password | default('changeme') }}"
+      RCON_PORT: "{{ minecraft_rcon_port | default('25575') }}"
+      MOTD: "{{ minecraft_motd | default('A Minecraft Server') }}"
+      MAX_PLAYERS: "{{ minecraft_max_players | default('20') }}"
+      DIFFICULTY: "{{ minecraft_difficulty | default('normal') }}"
+      MODE: "{{ minecraft_gamemode | default('survival') }}"
+      PVP: "{{ minecraft_pvp | default('true') }}"
+      TZ: "{{ timezone }}"

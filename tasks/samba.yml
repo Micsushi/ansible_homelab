@@ -1,0 +1,51 @@
+---
+# Samba - File sharing server
+
+- name: Create Samba config directory
+  ansible.builtin.file:
+    path: "{{ docker_dir }}/samba/config"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+
+- name: Create Samba configuration file
+  ansible.builtin.copy:
+    content: |
+      [global]
+      workgroup = WORKGROUP
+      server string = Samba Server
+      security = user
+      map to guest = Bad User
+      dns proxy = no
+
+      [shared]
+      path = {{ data_dir }}/shared
+      browseable = yes
+      writable = yes
+      guest ok = no
+      valid users = {{ username }}
+      create mask = 0664
+      directory mask = 0775
+    dest: "{{ docker_dir }}/samba/config/smb.conf"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0644"
+
+- name: Create Samba container
+  community.docker.docker_container:
+    name: samba
+    image: dperson/samba:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ docker_dir }}/samba/config:/etc/samba"
+      - "{{ data_dir }}/shared:/shared"
+    networks:
+      - name: homelab
+    ports:
+      - "139:139"
+      - "445:445"
+    command: "-s 'shared;/shared;yes;no;no;{{ username }}' -u '{{ username }}:{{ samba_password | default('changeme') }}'"
+    env:
+      TZ: "{{ timezone }}"

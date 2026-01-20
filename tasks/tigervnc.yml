@@ -1,0 +1,84 @@
+---
+# TigerVNC - VNC server for remote desktop access
+
+- name: Install TigerVNC server (Ubuntu/Debian)
+  ansible.builtin.package:
+    name:
+      - tigervnc-standalone-server
+      - tigervnc-common
+      - xfce4
+      - xfce4-goodies
+    state: present
+  when: ansible_distribution in ["Ubuntu", "Debian"]
+
+- name: Install TigerVNC server (Fedora/CentOS)
+  ansible.builtin.package:
+    name:
+      - tigervnc-server
+      - @xfce-desktop-environment
+    state: present
+  when: ansible_distribution in ["Fedora", "CentOS", "RedHat"]
+
+- name: Create VNC user directory
+  ansible.builtin.file:
+    path: /home/{{ username }}/.vnc
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+
+- name: Set VNC password
+  ansible.builtin.command: echo "{{ vnc_password | default('changeme') }}" | vncpasswd -f > /home/{{ username }}/.vnc/passwd
+  args:
+    creates: /home/{{ username }}/.vnc/passwd
+  become_user: "{{ username }}"
+  changed_when: false
+
+- name: Set VNC password permissions
+  ansible.builtin.file:
+    path: /home/{{ username }}/.vnc/passwd
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0600"
+
+- name: Create VNC xstartup file
+  ansible.builtin.copy:
+    content: |
+      #!/bin/sh
+      unset SESSION_MANAGER
+      unset DBUS_SESSION_BUS_ADDRESS
+      exec /etc/X11/xinit/xinitrc
+      [ -x /etc/vnc/xstartup ] && exec /etc/vnc/xstartup
+      [ -r $HOME/.Xresources ] && xrdb $HOME/.Xresources
+      x-window-manager &
+      startxfce4 &
+    dest: /home/{{ username }}/.vnc/xstartup
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+
+- name: Create VNC systemd service
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Remote desktop service (VNC)
+      After=syslog.target network.target
+
+      [Service]
+      Type=forking
+      User={{ username }}
+      ExecStartPre=/bin/sh -c '/usr/bin/vncserver -kill :1 > /dev/null 2>&1 || :'
+      ExecStart=/usr/bin/vncserver :1 -geometry {{ vnc_resolution | default('1920x1080') }} -depth 24
+      ExecStop=/usr/bin/vncserver -kill :1
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/vncserver@.service
+    mode: "0644"
+
+- name: Enable and start VNC service
+  ansible.builtin.systemd:
+    name: vncserver@:1.service
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,0 +1,56 @@
+---
+# Step 2: Home Server Setup
+# Sets up the device to work as a home server
+# Services: Immich (photos), Samba (file sharing), Jellyfin (media), Pi-hole (DNS/ad blocker)
+# All services run in Docker containers
+
+- name: Create service directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/immich"
+    - "{{ docker_dir }}/immich/postgres"
+    - "{{ docker_dir }}/immich/redis"
+    - "{{ docker_dir }}/immich/machine-learning"
+    - "{{ docker_dir }}/immich/typesense"
+    - "{{ docker_dir }}/immich/upload"
+    - "{{ docker_dir }}/samba"
+    - "{{ docker_dir }}/jellyfin"
+    - "{{ docker_dir }}/pihole"
+    - "{{ data_dir }}/photos"
+    - "{{ data_dir }}/media/movies"
+    - "{{ data_dir }}/media/tv"
+    - "{{ data_dir }}/shared"
+
+- name: Deploy Immich (Photo Storage)
+  ansible.builtin.include_tasks: tasks/immich.yml
+  when: deploy_immich | default(true)
+
+- name: Deploy Samba (File Sharing)
+  ansible.builtin.include_tasks: tasks/samba.yml
+  when: deploy_samba | default(true)
+
+- name: Deploy Jellyfin (Media Server)
+  ansible.builtin.include_tasks: tasks/jellyfin.yml
+  when: deploy_jellyfin | default(true)
+
+- name: Deploy Pi-hole (DNS/Ad Blocker)
+  ansible.builtin.include_tasks: tasks/pihole.yml
+  when: deploy_pihole | default(true)
+
+- name: Verify services are running
+  ansible.builtin.wait_for:
+    port: "{{ item.port }}"
+    host: "{{ item.host | default('localhost') }}"
+    delay: 10
+    timeout: 60
+  loop: "{{ service_health_checks | default([]) }}"
+  ignore_errors: true
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "Step 2 complete. Services deployed: Immich, Samba, Jellyfin, Pi-hole"

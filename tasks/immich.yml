@@ -1,0 +1,120 @@
+---
+# Immich - Self-hosted photo and video backup solution
+
+- name: Create Immich docker-compose file
+  ansible.builtin.copy:
+    content: |
+      version: "3.8"
+
+      services:
+        immich-server:
+          container_name: immich_server
+          image: ghcr.io/immich-app/immich-server:latest
+          entrypoint: ["/bin/sh", "./start-server.sh"]
+          volumes:
+            - {{ docker_dir }}/immich/upload:/usr/src/app/upload
+            - {{ data_dir }}/photos:/usr/src/app/library
+          env_file:
+            - .env
+          ports:
+            - "2283:3001"
+          depends_on:
+            - redis
+            - postgres
+            - typesense
+          restart: unless-stopped
+          networks:
+            - homelab
+          labels:
+            traefik.enable: "true"
+            traefik.http.routers.immich.entrypoints: "http"
+            traefik.http.routers.immich.rule: "Host(`immich.{{ domain }}`)"
+            traefik.http.middlewares.immich-https-redirect.redirectscheme.scheme: "https"
+            traefik.http.routers.immich.middlewares: "immich-https-redirect"
+            traefik.http.routers.immich-secure.entrypoints: "https"
+            traefik.http.routers.immich-secure.rule: "Host(`immich.{{ domain }}`)"
+            traefik.http.routers.immich-secure.tls: "true"
+            traefik.http.routers.immich-secure.service: "immich"
+            traefik.http.routers.immich-secure.middlewares: "authelia@docker"
+            traefik.http.services.immich.loadbalancer.server.port: "3001"
+            traefik.docker.network: "homelab"
+
+        immich-machine-learning:
+          container_name: immich_machine_learning
+          image: ghcr.io/immich-app/immich-machine-learning:latest
+          volumes:
+            - {{ docker_dir }}/immich/machine-learning:/model-cache
+          env_file:
+            - .env
+          restart: unless-stopped
+          networks:
+            - homelab
+
+        redis:
+          container_name: immich_redis
+          image: redis:alpine
+          volumes:
+            - {{ docker_dir }}/immich/redis:/data
+          restart: unless-stopped
+          networks:
+            - homelab
+
+        postgres:
+          container_name: immich_postgres
+          image: postgres:14
+          volumes:
+            - {{ docker_dir }}/immich/postgres:/var/lib/postgresql/data
+          env_file:
+            - .env
+          restart: unless-stopped
+          networks:
+            - homelab
+
+        typesense:
+          container_name: immich_typesense
+          image: typesense/typesense:0.24.1
+          volumes:
+            - {{ docker_dir }}/immich/typesense:/data
+          ports:
+            - "8108:8108"
+          restart: unless-stopped
+          networks:
+            - homelab
+
+      networks:
+        homelab:
+          external: true
+    dest: "{{ docker_dir }}/immich/docker-compose.yml"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0644"
+
+- name: Create Immich .env file
+  ansible.builtin.copy:
+    content: |
+      # Immich Environment Variables
+      UPLOAD_LOCATION={{ data_dir }}/photos
+      POSTGRES_USER=postgres
+      POSTGRES_PASSWORD={{ immich_postgres_password | default('changeme') }}
+      POSTGRES_DB=immich
+      DB_HOSTNAME=postgres
+      REDIS_HOSTNAME=redis
+      TYPESENSE_ENABLED=true
+      TYPESENSE_HOST=typesense
+      TYPESENSE_PORT=8108
+      TYPESENSE_PROTOCOL=http
+      TYPESENSE_API_KEY={{ immich_typesense_api_key | default('changeme') }}
+      IMMICH_WEB_URL=http://immich.{{ domain }}
+      IMMICH_SERVER_URL=http://immich-server:3001
+    dest: "{{ docker_dir }}/immich/.env"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0600"
+
+- name: Deploy Immich with docker-compose
+  community.docker.docker_compose:
+    project_src: "{{ docker_dir }}/immich"
+    state: present
+    pull: true
+    recreate: always
+  become_user: "{{ username }}"

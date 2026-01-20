@@ -1,0 +1,24 @@
+---
+# Valheim Server
+
+- name: Create Valheim container
+  community.docker.docker_container:
+    name: valheim
+    image: lloesche/valheim-server:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ data_dir }}/games/valheim:/config"
+    networks:
+      - name: homelab
+    ports:
+      - "{{ valheim_port | default('2456') }}:2456/udp"
+      - "{{ valheim_port | default('2456') }}:2456/tcp"
+      - "{{ valheim_query_port | default('2457') }}:2457/udp"
+      - "{{ valheim_query_port | default('2457') }}:2457/tcp"
+    env:
+      SERVER_NAME: "{{ valheim_server_name | default('My Valheim Server') }}"
+      WORLD_NAME: "{{ valheim_world_name | default('Dedicated') }}"
+      PASSWORD: "{{ valheim_password | default('changeme') }}"
+      PUBLIC: "{{ valheim_public | default('1') }}"
+      TZ: "{{ timezone }}"

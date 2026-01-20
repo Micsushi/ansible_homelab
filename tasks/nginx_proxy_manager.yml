@@ -1,0 +1,33 @@
+---
+# Nginx Proxy Manager - Web-based reverse proxy management
+
+- name: Create Nginx Proxy Manager directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/nginx-proxy-manager/data"
+    - "{{ docker_dir }}/nginx-proxy-manager/letsencrypt"
+
+- name: Create Nginx Proxy Manager container
+  community.docker.docker_container:
+    name: nginx-proxy-manager
+    image: jc21/nginx-proxy-manager:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ docker_dir }}/nginx-proxy-manager/data:/data"
+      - "{{ docker_dir }}/nginx-proxy-manager/letsencrypt:/etc/letsencrypt"
+    networks:
+      - name: homelab
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    env:
+      TZ: "{{ timezone }}"
+    labels:
+      traefik.enable: "false"  # NPM manages its own routing

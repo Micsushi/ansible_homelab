@@ -1,0 +1,89 @@
+---
+# Step 3: Monitoring and Security
+# Sets up monitoring, security, and management tools
+# Services: Portainer, Prometheus+Grafana, Tailscale/Wireguard, Nginx Proxy Manager,
+#          Uptime Kuma, Vaultwarden, VNC (TigerVNC), Coolify
+
+- name: Create service directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/traefik"
+    - "{{ docker_dir }}/traefik/data"
+    - "{{ docker_dir }}/authelia"
+    - "{{ docker_dir }}/authelia/config"
+    - "{{ docker_dir }}/portainer"
+    - "{{ docker_dir }}/monitoring"
+    - "{{ docker_dir }}/tailscale"
+    - "{{ docker_dir }}/nginx-proxy-manager"
+    - "{{ docker_dir }}/nginx-proxy-manager/data"
+    - "{{ docker_dir }}/nginx-proxy-manager/letsencrypt"
+    - "{{ docker_dir }}/uptime_kuma"
+    - "{{ docker_dir }}/vaultwarden"
+    - "{{ docker_dir }}/coolify"
+    - "{{ docker_dir }}/vnc"
+
+- name: Deploy Traefik (Reverse Proxy)
+  ansible.builtin.include_tasks: tasks/traefik.yml
+  when: deploy_traefik | default(true)
+
+- name: Deploy Authelia (Authentication)
+  ansible.builtin.include_tasks: tasks/authelia.yml
+  when: deploy_authelia | default(true)
+
+- name: Deploy Portainer (Container Management)
+  ansible.builtin.include_tasks: tasks/portainer.yml
+  when: deploy_portainer | default(true)
+
+- name: Deploy Monitoring Stack (Prometheus + Grafana)
+  ansible.builtin.include_tasks: tasks/monitoring.yml
+  when: deploy_monitoring | default(true)
+
+- name: Deploy Tailscale (VPN - Alternative to Wireguard)
+  ansible.builtin.include_tasks: tasks/tailscale.yml
+  when: 
+    - deploy_tailscale | default(false)
+    - not (deploy_wireguard | default(false))
+
+- name: Deploy Wireguard (VPN - Alternative to Tailscale)
+  ansible.builtin.include_tasks: tasks/wireguard.yml
+  when:
+    - deploy_wireguard | default(false)
+    - not (deploy_tailscale | default(false))
+
+- name: Deploy Nginx Proxy Manager
+  ansible.builtin.include_tasks: tasks/nginx_proxy_manager.yml
+  when: deploy_nginx_proxy_manager | default(true)
+
+- name: Deploy Uptime Kuma
+  ansible.builtin.include_tasks: tasks/uptime_kuma.yml
+  when: deploy_uptime_kuma | default(true)
+
+- name: Deploy Vaultwarden
+  ansible.builtin.include_tasks: tasks/vaultwarden.yml
+  when: deploy_vaultwarden | default(true)
+
+- name: Deploy TigerVNC
+  ansible.builtin.include_tasks: tasks/tigervnc.yml
+  when: deploy_vnc | default(true)
+
+- name: Deploy Coolify
+  ansible.builtin.include_tasks: tasks/coolify.yml
+  when: deploy_coolify | default(true)
+
+- name: Verify monitoring services are running
+  ansible.builtin.wait_for:
+    port: "{{ item.port }}"
+    host: "{{ item.host | default('localhost') }}"
+    delay: 10
+    timeout: 60
+  loop: "{{ monitoring_health_checks | default([]) }}"
+  ignore_errors: true
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "Step 3 complete. Monitoring and security services deployed."

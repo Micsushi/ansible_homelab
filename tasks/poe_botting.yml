@@ -1,0 +1,139 @@
+---
+# Path of Exile Botting Container with VNC
+# Supports multiple instances with remote control
+
+- name: Create POE instance directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/botting/poe-instance-{{ instance_number }}"
+    - "{{ data_dir }}/botting/poe-instance-{{ instance_number }}"
+    - "{{ data_dir }}/botting/poe-instance-{{ instance_number }}/scripts"
+
+- name: Create POE botting container
+  community.docker.docker_container:
+    name: poe-instance-{{ instance_number }}
+    image: dorowu/ubuntu-desktop-lxde-vnc:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ data_dir }}/botting/poe-instance-{{ instance_number }}:/root/poe"
+      - "{{ docker_dir }}/botting/scripts:/root/scripts:ro"
+    networks:
+      - name: homelab
+    ports:
+      - "{{ vnc_port }}:80"  # VNC web interface
+      - "{{ (vnc_port + 100) }}:5900"  # VNC direct connection
+    env:
+      VNC_PASSWORD: "{{ vnc_password }}"
+      RESOLUTION: "1920x1080"
+      TZ: "{{ timezone }}"
+    devices:
+      - /dev/dri:/dev/dri  # GPU passthrough (if available)
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    shm_size: "2gb"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.poe-{{ instance_number }}.entrypoints: "http"
+      traefik.http.routers.poe-{{ instance_number }}.rule: "Host(`poe{{ instance_number }}.{{ domain }}`)"
+      traefik.http.middlewares.poe-{{ instance_number }}-https-redirect.redirectscheme.scheme: "https"
+      traefik.http.routers.poe-{{ instance_number }}.middlewares: "poe-{{ instance_number }}-https-redirect"
+      traefik.http.routers.poe-{{ instance_number }}-secure.entrypoints: "https"
+      traefik.http.routers.poe-{{ instance_number }}-secure.rule: "Host(`poe{{ instance_number }}.{{ domain }}`)"
+      traefik.http.routers.poe-{{ instance_number }}-secure.tls: "true"
+      traefik.http.routers.poe-{{ instance_number }}-secure.service: "poe-{{ instance_number }}"
+      traefik.http.routers.poe-{{ instance_number }}-secure.middlewares: "authelia@docker"
+      traefik.http.services.poe-{{ instance_number }}.loadbalancer.server.port: "80"
+      traefik.docker.network: "homelab"
+
+- name: Create POE installation script
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # Path of Exile Installation Script for Instance {{ instance_number }}
+      
+      echo "Installing Path of Exile..."
+      
+      # Update system
+      apt-get update
+      apt-get install -y wget wine64 wine32 winetricks xvfb
+      
+      # Create Wine prefix
+      export WINEPREFIX=/root/poe/wine
+      export WINEARCH=win64
+      winecfg
+      
+      # Download Path of Exile installer
+      cd /root/poe
+      wget https://www.pathofexile.com/downloads/PathOfExileInstaller.exe
+      
+      # Install Path of Exile
+      wine PathOfExileInstaller.exe
+      
+      echo "Path of Exile installation complete!"
+      echo "You can now access it via VNC at: http://localhost:{{ vnc_port }}"
+    dest: "{{ data_dir }}/botting/poe-instance-{{ instance_number }}/scripts/install-poe.sh"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: '0755'
+
+- name: Create POE bot control script template
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # Path of Exile Bot Control Script - Instance {{ instance_number }}
+      # Place your bot scripts in this directory
+      
+      INSTANCE={{ instance_number }}
+      POE_DIR="/root/poe"
+      SCRIPTS_DIR="/root/scripts"
+      
+      # Function to start Path of Exile
+      start_poe() {
+        echo "Starting Path of Exile instance $INSTANCE..."
+        cd "$POE_DIR"
+        # Add your Path of Exile startup command here
+        # Example: wine "$POE_DIR/drive_c/Program Files/Grinding Gear Games/Path of Exile/PathOfExile.exe"
+      }
+      
+      # Function to run bot script
+      run_bot() {
+        local SCRIPT=$1
+        if [ -z "$SCRIPT" ]; then
+          echo "Usage: $0 run <script_name>"
+          exit 1
+        fi
+        
+        if [ ! -f "$SCRIPTS_DIR/$SCRIPT" ]; then
+          echo "Script not found: $SCRIPTS_DIR/$SCRIPT"
+          exit 1
+        fi
+        
+        echo "Running bot script: $SCRIPT"
+        bash "$SCRIPTS_DIR/$SCRIPT"
+      }
+      
+      # Main command handling
+      case "$1" in
+        start)
+          start_poe
+          ;;
+        run)
+          run_bot "$2"
+          ;;
+        *)
+          echo "Usage: $0 {start|run} [script_name]"
+          exit 1
+          ;;
+      esac
+    dest: "{{ data_dir }}/botting/poe-instance-{{ instance_number }}/scripts/bot-control.sh"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: '0755'

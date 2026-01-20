@@ -1,0 +1,29 @@
+---
+# Master Playbook - Multifunctional Home Server Setup
+# This playbook orchestrates all 5 steps of the home server setup
+# You can run individual steps using tags: --tags "step1" or --tags "step1,step2"
+
+- name: Multifunctional Home Server Setup
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Step 1 - Initial Setup
+      ansible.builtin.include_tasks: step1_initial_setup.yml
+      tags: step1
+
+    - name: Step 2 - Home Server Setup
+      ansible.builtin.include_tasks: step2_home_server.yml
+      tags: step2
+
+    - name: Step 3 - Monitoring and Security
+      ansible.builtin.include_tasks: step3_monitoring_security.yml
+      tags: step3
+
+    - name: Step 4 - Game Servers
+      ansible.builtin.include_tasks: step4_game_servers.yml
+      tags: step4
+
+    - name: Step 5 - Botting Server
+      ansible.builtin.include_tasks: step5_botting.yml
+      tags: step5

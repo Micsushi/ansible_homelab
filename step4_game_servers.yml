@@ -1,0 +1,51 @@
+---
+# Step 4: Game Servers
+# Sets up game servers that can run 24/7
+# Services: Minecraft, Project Zomboid, Valheim, Discord Bot Runner
+
+- name: Create service directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/minecraft"
+    - "{{ docker_dir }}/project-zomboid"
+    - "{{ docker_dir }}/valheim"
+    - "{{ docker_dir }}/discord-bot"
+    - "{{ data_dir }}/games"
+    - "{{ data_dir }}/games/minecraft"
+    - "{{ data_dir }}/games/project-zomboid"
+    - "{{ data_dir }}/games/valheim"
+    - "{{ data_dir }}/games/discord-bots"
+
+- name: Deploy Minecraft Server
+  ansible.builtin.include_tasks: tasks/minecraft.yml
+  when: deploy_minecraft | default(true)
+
+- name: Deploy Project Zomboid Server
+  ansible.builtin.include_tasks: tasks/project_zomboid.yml
+  when: deploy_project_zomboid | default(true)
+
+- name: Deploy Valheim Server
+  ansible.builtin.include_tasks: tasks/valheim.yml
+  when: deploy_valheim | default(true)
+
+- name: Deploy Discord Bot Runner
+  ansible.builtin.include_tasks: tasks/discord_bot.yml
+  when: deploy_discord_bot | default(true)
+
+- name: Verify game servers are running
+  ansible.builtin.wait_for:
+    port: "{{ item.port }}"
+    host: "{{ item.host | default('localhost') }}"
+    delay: 10
+    timeout: 60
+  loop: "{{ game_server_health_checks | default([]) }}"
+  ignore_errors: true
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "Step 4 complete. Game servers deployed: Minecraft, Project Zomboid, Valheim, Discord Bot Runner"
