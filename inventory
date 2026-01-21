@@ -1,6 +1,10 @@
 [homeserver]
-<server_ip>
+localhost ansible_connection=local
 
-[homeserver:vars]
-ansible_user = <username>
-ansible_ssh_private_key_file = <path/to/private/key>
+# Alternative: If running from remote machine via SSH, use:
+# <server_ip>
+# [homeserver:vars]
+# ansible_user = <username>
+# ansible_ssh_private_key_file = <path/to/private/key>
+# OR
+# ansible_ssh_pass = <password>
