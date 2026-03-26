@@ -1,5 +1,5 @@
 ---
-# Step 3: Monitoring and Security
+# Stage 3: Monitoring and Security
 # Sets up monitoring, security, and management tools
 # Services: Portainer, Prometheus+Grafana, Tailscale/Wireguard, Nginx Proxy Manager,
 #          Uptime Kuma, Vaultwarden, VNC (TigerVNC), Coolify
@@ -45,7 +45,7 @@
 
 - name: Deploy Tailscale (VPN - Alternative to Wireguard)
   ansible.builtin.include_tasks: tasks/tailscale.yml
-  when: 
+  when:
     - deploy_tailscale | default(false)
     - not (deploy_wireguard | default(false))
 
@@ -86,4 +86,4 @@
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: "Step 3 complete. Monitoring and security services deployed."
+    msg: "Stage 3 complete. Monitoring and security services deployed."

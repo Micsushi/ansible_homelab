@@ -1,29 +1,50 @@
 ---
 # Master Playbook - Multifunctional Home Server Setup
-# This playbook orchestrates all 5 steps of the home server setup
-# You can run individual steps using tags: --tags "step1" or --tags "step1,step2"
+# This playbook orchestrates all 5 stages of the home server setup
+# You can run individual stages using tags: --tags "stage1" or --tags "stage1,stage2"
 
 - name: Multifunctional Home Server Setup
   hosts: all
   become: true
 
   tasks:
-    - name: Step 1 - Initial Setup
-      ansible.builtin.include_tasks: step1_initial_setup.yml
-      tags: step1
+    # apply.tags: so --tags stageN runs tasks inside the included file (include_tasks does not inherit tags otherwise)
+    - name: Stage 1 - Initial Setup
+      ansible.builtin.include_tasks:
+        file: stage1_initial_setup.yml
+        apply:
+          tags:
+            - stage1
+      tags: stage1
 
-    - name: Step 2 - Home Server Setup
-      ansible.builtin.include_tasks: step2_home_server.yml
-      tags: step2
+    - name: Stage 2 - Home Server Setup
+      ansible.builtin.include_tasks:
+        file: stage2_home_server.yml
+        apply:
+          tags:
+            - stage2
+      tags: stage2
 
-    - name: Step 3 - Monitoring and Security
-      ansible.builtin.include_tasks: step3_monitoring_security.yml
-      tags: step3
+    - name: Stage 3 - Monitoring and Security
+      ansible.builtin.include_tasks:
+        file: stage3_monitoring_security.yml
+        apply:
+          tags:
+            - stage3
+      tags: stage3
 
-    - name: Step 4 - Game Servers
-      ansible.builtin.include_tasks: step4_game_servers.yml
-      tags: step4
+    - name: Stage 4 - Game Servers
+      ansible.builtin.include_tasks:
+        file: stage4_game_servers.yml
+        apply:
+          tags:
+            - stage4
+      tags: stage4
 
-    - name: Step 5 - Botting Server
-      ansible.builtin.include_tasks: step5_botting.yml
-      tags: step5
+    - name: Stage 5 - Botting Server
+      ansible.builtin.include_tasks:
+        file: stage5_botting.yml
+        apply:
+          tags:
+            - stage5
+      tags: stage5

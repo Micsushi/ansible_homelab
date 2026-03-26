@@ -1,5 +1,5 @@
 ---
-# Step 1: Initial Setup
+# Stage 1: Initial Setup
 # Installs all common libraries, tools, and programs needed
 # Includes: git, curl, docker, and GUI apps (Cursor, Discord, Steam, Brave)
 
@@ -32,7 +32,10 @@
 - name: Reboot if required on Ubuntu/Debian
   ansible.builtin.reboot:
     msg: Rebooting due to a kernel update
-  when: (ansible_distribution in ["Ubuntu", "Debian"]) and reboot_required_file.stat.exists
+  when:
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - reboot_required_file.stat.exists
+    - ansible_virtualization_type | default('') != 'wsl'
 
 - name: Check if reboot required on Fedora
   ansible.builtin.command: needs-restarting -r
@@ -55,7 +58,8 @@
   ansible.builtin.pip:
     name: "{{ pip_packages }}"
     state: present
-    break_system_packages: true
+    # Use extra_args for older ansible-core pip modules that lack break_system_packages
+    extra_args: --break-system-packages
   when: ansible_distribution in ["Ubuntu", "Debian"]
 
 - name: Install pip packages (Fedora/CentOS)
@@ -71,41 +75,41 @@
   ansible.builtin.package:
     name: snapd
     state: present
-  when: 
+  when:
     - ansible_distribution in ["Ubuntu", "Debian"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Enable snapd socket (Ubuntu/Debian)
   ansible.builtin.systemd:
     name: snapd.socket
     enabled: true
     state: started
-  when: 
+  when:
     - ansible_distribution in ["Ubuntu", "Debian"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Wait for snapd to be ready
   ansible.builtin.wait_for:
     path: /run/snapd.socket
     state: present
     timeout: 30
-  when: 
+  when:
     - ansible_distribution in ["Ubuntu", "Debian"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Install GUI applications via Snap (Ubuntu/Debian)
   ansible.builtin.snap:
     name: "{{ item }}"
     state: present
     classic: true
-  loop: "{{ gui_snap_packages }}"
-  when: 
+  loop: "{{ gui_snap_packages | default([]) }}"
+  when:
     - ansible_distribution in ["Ubuntu", "Debian"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Install snapd (Fedora)
   ansible.builtin.package:
@@ -114,7 +118,7 @@
   when:
     - ansible_distribution in ["Fedora"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Enable snapd socket (Fedora)
   ansible.builtin.systemd:
@@ -124,7 +128,7 @@
   when:
     - ansible_distribution in ["Fedora"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Create symlink for snap (Fedora)
   ansible.builtin.file:
@@ -134,7 +138,7 @@
   when:
     - ansible_distribution in ["Fedora"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Wait for snapd to be ready (Fedora)
   ansible.builtin.wait_for:
@@ -151,11 +155,11 @@
     name: "{{ item }}"
     state: present
     classic: true
-  loop: "{{ gui_snap_packages }}"
+  loop: "{{ gui_snap_packages | default([]) }}"
   when:
     - ansible_distribution in ["Fedora"]
     - install_gui_apps | default(false)
-    - gui_snap_packages | length > 0
+    - (gui_snap_packages | default([])) | length > 0
 
 - name: Install Brave browser (Ubuntu/Debian)
   ansible.builtin.apt_repository:
@@ -188,11 +192,11 @@
   ansible.builtin.package:
     name: "{{ item }}"
     state: present
-  loop: "{{ gui_packages }}"
+  loop: "{{ gui_packages | default([]) }}"
   when:
     - ansible_distribution in ["Ubuntu", "Debian"]
     - install_gui_apps | default(false)
-    - gui_packages | length > 0
+    - (gui_packages | default([])) | length > 0
 
 - name: Add Brave repository (Fedora)
   ansible.builtin.yum_repository:
@@ -211,11 +215,11 @@
   ansible.builtin.package:
     name: "{{ item }}"
     state: present
-  loop: "{{ gui_packages }}"
+  loop: "{{ gui_packages | default([]) }}"
   when:
     - ansible_distribution in ["Fedora", "CentOS", "RedHat"]
     - install_gui_apps | default(false)
-    - gui_packages | length > 0
+    - (gui_packages | default([])) | length > 0
 
 - name: Download Cursor editor (if requested)
   ansible.builtin.get_url:

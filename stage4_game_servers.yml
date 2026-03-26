@@ -1,5 +1,5 @@
 ---
-# Step 4: Game Servers
+# Stage 4: Game Servers
 # Sets up game servers that can run 24/7
 # Services: Minecraft, Project Zomboid, Valheim, Discord Bot Runner
 
@@ -48,4 +48,4 @@
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: "Step 4 complete. Game servers deployed: Minecraft, Project Zomboid, Valheim, Discord Bot Runner"
+    msg: "Stage 4 complete. Game servers deployed: Minecraft, Project Zomboid, Valheim, Discord Bot Runner"

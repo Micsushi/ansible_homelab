@@ -1,5 +1,5 @@
 ---
-# Step 2: Home Server Setup
+# Stage 2: Home Server Setup
 # Sets up the device to work as a home server
 # Services: Immich (photos), Samba (file sharing), Jellyfin (media), Pi-hole (DNS/ad blocker)
 # All services run in Docker containers
@@ -53,4 +53,4 @@
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: "Step 2 complete. Services deployed: Immich, Samba, Jellyfin, Pi-hole"
+    msg: "Stage 2 complete. Services deployed: Immich, Samba, Jellyfin, Pi-hole"

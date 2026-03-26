@@ -51,7 +51,7 @@
   ansible.builtin.pip:
     name: "{{ pip_packages }}"
     state: present
-    break_system_packages: true
+    extra_args: --break-system-packages
 
 - name: Create Docker directory
   ansible.builtin.file:

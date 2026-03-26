@@ -1,5 +1,5 @@
 ---
-# Step 5: Botting Server
+# Stage 5: Botting Server
 # Sets up containers for running multiple game instances with remote control
 # Services: Game botting containers with VNC, script execution, GPU support
 
@@ -20,7 +20,7 @@
     curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
     sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
     sudo systemctl restart docker
-  when: 
+  when:
     - ansible_distribution in ["Ubuntu", "Debian"]
     - enable_gpu_passthrough | default(false)
   ignore_errors: true
@@ -64,10 +64,10 @@
       # Botting Control Script
       # Usage: ./botting-control.sh <instance> <action>
       # Actions: start, stop, restart, status, vnc, exec
-      
+
       INSTANCE=$1
       ACTION=$2
-      
+
       case $ACTION in
         start)
           docker start poe-instance-$INSTANCE
@@ -112,4 +112,4 @@
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: "Step 5 complete. Botting instances deployed. Use botting-control.sh to manage instances."
+    msg: "Stage 5 complete. Botting instances deployed. Use botting-control.sh to manage instances."
