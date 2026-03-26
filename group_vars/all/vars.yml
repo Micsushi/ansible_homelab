@@ -28,7 +28,7 @@ pip_packages:
   - docker
 
 # Stage 1: GUI Applications (optional)
-install_gui_apps: false  # Set to true to install GUI apps
+install_gui_apps: true  # Enabled by scripts/prepare-gui-apps.sh
 # GUI app lists are defined in group_vars/all/gui_apps.yml
 
 # Stage 2: Home Server Services
