@@ -7,7 +7,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_FILE="${SCRIPT_DIR}/.generated-values.env"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+OUT_FILE="${REPO_ROOT}/.generated-values.env"
 OVERWRITE=false
 
 if [[ "${1:-}" == "--overwrite" ]]; then
@@ -17,7 +18,7 @@ fi
 if [[ -f "${OUT_FILE}" && "${OVERWRITE}" != "true" ]]; then
   echo "Generated values file already exists: ${OUT_FILE}"
   echo "Refusing to overwrite existing secrets."
-  echo "Use: bash generate-values.sh --overwrite"
+  echo "Use: bash scripts/generate-values.sh --overwrite"
   exit 1
 fi
 
@@ -51,9 +52,9 @@ echo "Generated secrets written to:"
 echo "  ${OUT_FILE}"
 echo ""
 echo "How to apply:"
-echo "  bash apply-generated-values.sh --stage 2"
-echo "  bash apply-generated-values.sh --stage 3"
-echo "  bash apply-generated-values.sh --key samba_password,pihole_password"
+echo "  bash scripts/apply-generated-values.sh --stage 2"
+echo "  bash scripts/apply-generated-values.sh --stage 3"
+echo "  bash scripts/apply-generated-values.sh --key samba_password,pihole_password"
 echo ""
 echo "Manual values still required for Stage 3:"
 echo "  domain, cloudflare_email, cloudflare_api_key, traefik_basic_auth_hash,"

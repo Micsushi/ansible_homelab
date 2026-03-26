@@ -68,4 +68,4 @@ with open('inventory', 'w') as f:
     f.write(content)
 
 # Run the playbook
-subprocess.run(['ansible-playbook', 'main.yml'])
+subprocess.run(['ansible-playbook', 'playbooks/main.yml'])

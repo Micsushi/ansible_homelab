@@ -11,7 +11,7 @@
     # apply.tags: so --tags stageN runs tasks inside the included file (include_tasks does not inherit tags otherwise)
     - name: Stage 1 - Initial Setup
       ansible.builtin.include_tasks:
-        file: stage1_initial_setup.yml
+        file: stages/stage1_initial_setup.yml
         apply:
           tags:
             - stage1
@@ -19,7 +19,7 @@
 
     - name: Stage 2 - Home Server Setup
       ansible.builtin.include_tasks:
-        file: stage2_home_server.yml
+        file: stages/stage2_home_server.yml
         apply:
           tags:
             - stage2
@@ -27,7 +27,7 @@
 
     - name: Stage 3 - Monitoring and Security
       ansible.builtin.include_tasks:
-        file: stage3_monitoring_security.yml
+        file: stages/stage3_monitoring_security.yml
         apply:
           tags:
             - stage3
@@ -35,7 +35,7 @@
 
     - name: Stage 4 - Game Servers
       ansible.builtin.include_tasks:
-        file: stage4_game_servers.yml
+        file: stages/stage4_game_servers.yml
         apply:
           tags:
             - stage4
@@ -43,7 +43,7 @@
 
     - name: Stage 5 - Botting Server
       ansible.builtin.include_tasks:
-        file: stage5_botting.yml
+        file: stages/stage5_botting.yml
         apply:
           tags:
             - stage5

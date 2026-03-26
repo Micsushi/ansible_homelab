@@ -3,19 +3,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VARS_FILE="${SCRIPT_DIR}/group_vars/all/vars.yml"
-GEN_FILE="${SCRIPT_DIR}/.generated-values.env"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+VARS_FILE="${REPO_ROOT}/group_vars/all/vars.yml"
+GEN_FILE="${REPO_ROOT}/.generated-values.env"
 
 usage() {
   cat <<'EOF'
 Usage:
-  bash apply-generated-values.sh --stage 2
-  bash apply-generated-values.sh --stage 3
-  bash apply-generated-values.sh --stage 2 --stage 3
-  bash apply-generated-values.sh --key samba_password,pihole_password
-  bash apply-generated-values.sh --all
-  bash apply-generated-values.sh --revert-last
-  bash apply-generated-values.sh --revert group_vars/all/vars.yml.bak.<timestamp>
+  bash scripts/apply-generated-values.sh --stage 2
+  bash scripts/apply-generated-values.sh --stage 3
+  bash scripts/apply-generated-values.sh --stage 2 --stage 3
+  bash scripts/apply-generated-values.sh --key samba_password,pihole_password
+  bash scripts/apply-generated-values.sh --all
+  bash scripts/apply-generated-values.sh --revert-last
+  bash scripts/apply-generated-values.sh --revert group_vars/all/vars.yml.bak.<timestamp>
 
 Options:
   --stage <2|3>      Apply all generated keys for a stage (repeatable)
@@ -33,7 +34,7 @@ fi
 
 if [[ ! -f "${GEN_FILE}" ]]; then
   echo "Error: generated values file not found at ${GEN_FILE}"
-  echo "Run: bash generate-values.sh"
+  echo "Run: bash scripts/generate-values.sh"
   exit 1
 fi
 

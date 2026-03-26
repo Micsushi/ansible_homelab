@@ -27,19 +27,19 @@
     - "{{ data_dir }}/shared"
 
 - name: Deploy Immich (Photo Storage)
-  ansible.builtin.include_tasks: tasks/immich.yml
+  ansible.builtin.include_tasks: ../tasks/immich.yml
   when: deploy_immich | default(true)
 
 - name: Deploy Samba (File Sharing)
-  ansible.builtin.include_tasks: tasks/samba.yml
+  ansible.builtin.include_tasks: ../tasks/samba.yml
   when: deploy_samba | default(true)
 
 - name: Deploy Jellyfin (Media Server)
-  ansible.builtin.include_tasks: tasks/jellyfin.yml
+  ansible.builtin.include_tasks: ../tasks/jellyfin.yml
   when: deploy_jellyfin | default(true)
 
 - name: Deploy Pi-hole (DNS/Ad Blocker)
-  ansible.builtin.include_tasks: tasks/pihole.yml
+  ansible.builtin.include_tasks: ../tasks/pihole.yml
   when: deploy_pihole | default(true)
 
 - name: Verify services are running

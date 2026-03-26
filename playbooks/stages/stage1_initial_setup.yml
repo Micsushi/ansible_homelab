@@ -69,7 +69,7 @@
   when: ansible_distribution in ["Fedora", "CentOS", "RedHat"]
 
 - name: Install Docker
-  ansible.builtin.include_tasks: tasks/docker.yml
+  ansible.builtin.include_tasks: ../tasks/docker.yml
 
 - name: Install snapd (Ubuntu/Debian)
   ansible.builtin.package:

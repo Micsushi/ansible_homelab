@@ -22,19 +22,19 @@
     - "{{ data_dir }}/games/discord-bots"
 
 - name: Deploy Minecraft Server
-  ansible.builtin.include_tasks: tasks/minecraft.yml
+  ansible.builtin.include_tasks: ../tasks/minecraft.yml
   when: deploy_minecraft | default(true)
 
 - name: Deploy Project Zomboid Server
-  ansible.builtin.include_tasks: tasks/project_zomboid.yml
+  ansible.builtin.include_tasks: ../tasks/project_zomboid.yml
   when: deploy_project_zomboid | default(true)
 
 - name: Deploy Valheim Server
-  ansible.builtin.include_tasks: tasks/valheim.yml
+  ansible.builtin.include_tasks: ../tasks/valheim.yml
   when: deploy_valheim | default(true)
 
 - name: Deploy Discord Bot Runner
-  ansible.builtin.include_tasks: tasks/discord_bot.yml
+  ansible.builtin.include_tasks: ../tasks/discord_bot.yml
   when: deploy_discord_bot | default(true)
 
 - name: Verify game servers are running

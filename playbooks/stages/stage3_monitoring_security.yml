@@ -28,51 +28,51 @@
     - "{{ docker_dir }}/vnc"
 
 - name: Deploy Traefik (Reverse Proxy)
-  ansible.builtin.include_tasks: tasks/traefik.yml
+  ansible.builtin.include_tasks: ../tasks/traefik.yml
   when: deploy_traefik | default(true)
 
 - name: Deploy Authelia (Authentication)
-  ansible.builtin.include_tasks: tasks/authelia.yml
+  ansible.builtin.include_tasks: ../tasks/authelia.yml
   when: deploy_authelia | default(true)
 
 - name: Deploy Portainer (Container Management)
-  ansible.builtin.include_tasks: tasks/portainer.yml
+  ansible.builtin.include_tasks: ../tasks/portainer.yml
   when: deploy_portainer | default(true)
 
 - name: Deploy Monitoring Stack (Prometheus + Grafana)
-  ansible.builtin.include_tasks: tasks/monitoring.yml
+  ansible.builtin.include_tasks: ../tasks/monitoring.yml
   when: deploy_monitoring | default(true)
 
 - name: Deploy Tailscale (VPN - Alternative to Wireguard)
-  ansible.builtin.include_tasks: tasks/tailscale.yml
+  ansible.builtin.include_tasks: ../tasks/tailscale.yml
   when:
     - deploy_tailscale | default(false)
     - not (deploy_wireguard | default(false))
 
 - name: Deploy Wireguard (VPN - Alternative to Tailscale)
-  ansible.builtin.include_tasks: tasks/wireguard.yml
+  ansible.builtin.include_tasks: ../tasks/wireguard.yml
   when:
     - deploy_wireguard | default(false)
     - not (deploy_tailscale | default(false))
 
 - name: Deploy Nginx Proxy Manager
-  ansible.builtin.include_tasks: tasks/nginx_proxy_manager.yml
+  ansible.builtin.include_tasks: ../tasks/nginx_proxy_manager.yml
   when: deploy_nginx_proxy_manager | default(true)
 
 - name: Deploy Uptime Kuma
-  ansible.builtin.include_tasks: tasks/uptime_kuma.yml
+  ansible.builtin.include_tasks: ../tasks/uptime_kuma.yml
   when: deploy_uptime_kuma | default(true)
 
 - name: Deploy Vaultwarden
-  ansible.builtin.include_tasks: tasks/vaultwarden.yml
+  ansible.builtin.include_tasks: ../tasks/vaultwarden.yml
   when: deploy_vaultwarden | default(true)
 
 - name: Deploy TigerVNC
-  ansible.builtin.include_tasks: tasks/tigervnc.yml
+  ansible.builtin.include_tasks: ../tasks/tigervnc.yml
   when: deploy_vnc | default(true)
 
 - name: Deploy Coolify
-  ansible.builtin.include_tasks: tasks/coolify.yml
+  ansible.builtin.include_tasks: ../tasks/coolify.yml
   when: deploy_coolify | default(true)
 
 - name: Verify monitoring services are running

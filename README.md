@@ -56,7 +56,7 @@ These scripts manage generated secrets for `group_vars/all/vars.yml`.
 1) Generate local secrets file:
 
 ```bash
-bash generate-values.sh
+bash scripts/generate-values.sh
 ```
 
 Creates `.generated-values.env` (gitignored).
@@ -65,36 +65,36 @@ If the file already exists, generation is blocked.
 2) Intentionally regenerate:
 
 ```bash
-bash generate-values.sh --overwrite
+bash scripts/generate-values.sh --overwrite
 ```
 
 3) Apply by stage:
 
 ```bash
-bash apply-generated-values.sh --stage 2
-bash apply-generated-values.sh --stage 3
+bash scripts/apply-generated-values.sh --stage 2
+bash scripts/apply-generated-values.sh --stage 3
 ```
 
 4) Apply specific keys:
 
 ```bash
-bash apply-generated-values.sh --key samba_password,pihole_password
+bash scripts/apply-generated-values.sh --key samba_password,pihole_password
 ```
 
 5) Apply all generated keys:
 
 ```bash
-bash apply-generated-values.sh --all
+bash scripts/apply-generated-values.sh --all
 ```
 
 Backups:
-- `apply-generated-values.sh` creates `group_vars/all/vars.yml.bak.<timestamp>` before edits.
+- `scripts/apply-generated-values.sh` creates `group_vars/all/vars.yml.bak.<timestamp>` before edits.
 
 Revert:
 
 ```bash
-bash apply-generated-values.sh --revert-last
-bash apply-generated-values.sh --revert group_vars/all/vars.yml.bak.20260327091530
+bash scripts/apply-generated-values.sh --revert-last
+bash scripts/apply-generated-values.sh --revert group_vars/all/vars.yml.bak.20260327091530
 ```
 
 Manual Stage 3 values are still required:
@@ -139,25 +139,25 @@ Notes:
 4) Generate/apply secrets:
 
 ```bash
-bash generate-values.sh
-bash apply-generated-values.sh --stage 2
+bash scripts/generate-values.sh
+bash scripts/apply-generated-values.sh --stage 2
 ```
 
 5) Validate:
 
 ```bash
 ansible -i inventory homeserver -m ping
-ansible-playbook -i inventory master.yml --syntax-check
+ansible-playbook -i inventory playbooks/master.yml --syntax-check
 ```
 
 Expected:
 - ping returns `SUCCESS` and `"ping": "pong"`
-- syntax-check ends with `playbook: master.yml`
+- syntax-check ends with `playbook: playbooks/master.yml`
 
 6) Run Stage 1:
 
 ```bash
-ansible-playbook -i inventory master.yml --tags stage1
+ansible-playbook -i inventory playbooks/master.yml --tags stage1
 ```
 
 7) Verify Docker access:
@@ -188,7 +188,7 @@ requested_gui_apps:
 2) Auto-classify + enable GUI install:
 
 ```bash
-bash prepare-gui-apps.sh
+bash scripts/prepare-gui-apps.sh
 ```
 
 What it does:
@@ -200,17 +200,17 @@ What it does:
 3) Run Stage 1 again:
 
 ```bash
-ansible-playbook -i inventory master.yml --tags stage1
+ansible-playbook -i inventory playbooks/master.yml --tags stage1
 ```
 
 ## Run Individual Stages
 
 ```bash
-ansible-playbook -i inventory master.yml --tags stage1
-ansible-playbook -i inventory master.yml --tags stage2
-ansible-playbook -i inventory master.yml --tags stage3
-ansible-playbook -i inventory master.yml --tags stage4
-ansible-playbook -i inventory master.yml --tags stage5
+ansible-playbook -i inventory playbooks/master.yml --tags stage1
+ansible-playbook -i inventory playbooks/master.yml --tags stage2
+ansible-playbook -i inventory playbooks/master.yml --tags stage3
+ansible-playbook -i inventory playbooks/master.yml --tags stage4
+ansible-playbook -i inventory playbooks/master.yml --tags stage5
 ```
 
 ## Minimum Variables By Stage
@@ -293,19 +293,19 @@ This avoids `/mnt/c/...` world-writable config warnings.
 ## Troubleshooting
 
 - `--tags stage1` appears to do nothing:
-  - ensure `master.yml` uses `include_tasks` with `apply.tags`
+  - ensure `playbooks/master.yml` uses `include_tasks` with `apply.tags`
 - Docker permission denied:
   - run `newgrp docker`
 - WSL line endings (`$'\r': command not found`):
 
 ```bash
-sed -i 's/\r$//' generate-values.sh apply-generated-values.sh prepare-gui-apps.sh
+sed -i 's/\r$//' scripts/generate-values.sh scripts/apply-generated-values.sh scripts/prepare-gui-apps.sh
 ```
 
 - Dry run preview:
 
 ```bash
-ansible-playbook -i inventory master.yml --check
+ansible-playbook -i inventory playbooks/master.yml --check
 ```
 
 ## License

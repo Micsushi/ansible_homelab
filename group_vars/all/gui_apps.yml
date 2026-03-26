@@ -1,7 +1,7 @@
 ---
 # Stage 1 GUI app configuration
 # Edit requested_gui_apps, then run:
-#   bash prepare-gui-apps.sh
+#   bash scripts/prepare-gui-apps.sh
 
 requested_gui_apps:
   - discord

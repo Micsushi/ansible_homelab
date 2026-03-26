@@ -42,7 +42,7 @@
     - "{{ data_dir }}/botting/poe-instance-2"
 
 - name: Deploy Path of Exile Instance 1
-  ansible.builtin.include_tasks: tasks/poe_botting.yml
+  ansible.builtin.include_tasks: ../tasks/poe_botting.yml
   vars:
     instance_number: 1
     vnc_port: 5901
@@ -50,7 +50,7 @@
   when: deploy_poe_instance1 | default(true)
 
 - name: Deploy Path of Exile Instance 2
-  ansible.builtin.include_tasks: tasks/poe_botting.yml
+  ansible.builtin.include_tasks: ../tasks/poe_botting.yml
   vars:
     instance_number: 2
     vnc_port: 5902
