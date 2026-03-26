@@ -236,6 +236,7 @@ Defaults:
 - repo path in WSL: `~/ansible_homelab`
 - inventory: `inventory.local`
 - tags: `stage1,stage2,stage3`
+- always runs `ansible-playbook` with `-K` (asks for sudo password on the target host)
 
 ### Common examples
 

@@ -223,9 +223,13 @@
 
 - name: Download Cursor editor (if requested)
   ansible.builtin.get_url:
-    url: "https://downloader.cursor.sh/linux/appImage/x64"
+    url: "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
     dest: "/tmp/cursor.AppImage"
     mode: '0755'
+  register: cursor_download
+  retries: 3
+  delay: 10
+  until: cursor_download is succeeded
   when:
     - install_gui_apps | default(false)
     - "'cursor' in gui_packages | default([])"
