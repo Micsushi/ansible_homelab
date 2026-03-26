@@ -214,11 +214,6 @@ Or:
 ```bash
 ansible-playbook -i inventory.local playbooks/master.yml --tags stage1,stage2,stage3
 ```
-
-> If you are temporarily using an old clone that still has `master.yml` at the repo root and no `playbooks/` directory, either:
-> - update it with `git fetch --all && git reset --hard origin/main`, **or**
-> - use the old path once: `ansible-playbook -i inventory.local master.yml --tags stage1`
-
 ---
 
 ## 9) One-command launcher from Windows
