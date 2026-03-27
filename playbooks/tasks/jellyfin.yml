@@ -1,7 +1,7 @@
 ---
 # Jellyfin - Media server
 # Port 8096 exposed for local access (pre-Traefik Stage 3)
-# Set ip_address in vars.yml to your server's LAN IP for client auto-discovery
+# Set ip_address in group_vars (vars.yml template, or override in vars_local.yml) for client auto-discovery
 #
 # jellyfin_auto_setup: true will:
 #   1. Run through the startup wizard automatically (no browser needed)

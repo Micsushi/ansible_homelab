@@ -1,4 +1,9 @@
 ---
+# Tracked defaults and placeholders (safe to commit).
+# Secrets live in group_vars/all/vars_local.yml (gitignored); Ansible merges it and it overrides.
+# Populate: bash scripts/generate-values.sh && bash scripts/apply-generated-values.sh --stage 2
+# See vars_local.yml.example
+
 # Base Configuration
 username: "sushi"
 docker_dir: /home/{{ username }}/docker_apps
@@ -181,7 +186,7 @@ service_health_checks:
   - { port: 2283, host: "localhost", name: "Immich" }
   - { port: 445, host: "localhost", name: "Samba" }
   - { port: 8096, host: "localhost", name: "Jellyfin" }
-  - { port: 80, host: "localhost", name: "Pi-hole" }
+  - { port: 8053, host: "localhost", name: "Pi-hole" }
 
 monitoring_health_checks:
   - { port: 9000, host: "localhost", name: "Portainer" }

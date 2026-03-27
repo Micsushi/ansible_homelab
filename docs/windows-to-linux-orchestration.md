@@ -159,7 +159,8 @@ nas ansible_host=192.168.1.52 ansible_user=admin ansible_ssh_private_key_file=~/
 
 Edit:
 
-- `group_vars/all/vars.yml`
+- `group_vars/all/vars.yml` — tracked defaults and placeholders (safe to commit)
+- `group_vars/all/vars_local.yml` — **local secrets** (gitignored). Ansible loads both; `vars_local.yml` overrides matching keys. See `vars_local.yml.example`.
 
 Usually set manually:
 
@@ -170,13 +171,17 @@ Usually set manually:
 - `ip_address` (when needed)
 - `domain` (for stage3 proxy/auth flows)
 
-Generate and apply script-managed secrets:
+Generate and apply script-managed secrets (writes **`group_vars/all/vars_local.yml`**, not `vars.yml`):
 
 ```bash
 bash scripts/generate-values.sh
 bash scripts/apply-generated-values.sh --stage 2
 bash scripts/apply-generated-values.sh --stage 3
 ```
+
+Optional/manual secrets you type yourself (put them in **`vars_local.yml`** so they stay out of git, or use placeholders in `vars.yml` only if you accept the risk):
+
+- `immich_admin_password`, `jellyfin_admin_password` (if using auto-setup), etc.
 
 Still manual for stage3:
 
@@ -214,6 +219,18 @@ Or:
 ```bash
 ansible-playbook -i inventory.local playbooks/master.yml --tags stage1,stage2,stage3
 ```
+---
+
+## 8b) Sync Windows repo copy into WSL (mirror)
+
+If you edit on Windows and want the WSL clone under `~/ansible_homelab` to match, run **from repo root** (PowerShell):
+
+```powershell
+.\scripts\sync-to-wsl.ps1
+```
+
+This uses `rsync` inside WSL. It **preserves** WSL-only files: `group_vars/all/vars_local.yml`, `.generated-values.env`, and `inventory.local` (so secrets on the control node are not wiped).
+
 ---
 
 ## 9) One-command launcher from Windows

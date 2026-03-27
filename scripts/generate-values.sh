@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 # Ansible Homelab Configuration Value Generator
-# Writes generated secrets to .generated-values.env in repo root.
-# By default it refuses to overwrite an existing file.
+# Writes generated secrets to .generated-values.env (gitignored).
+# apply-generated-values.sh copies selected keys into group_vars/all/vars_local.yml (not vars.yml).
+# By default it refuses to overwrite an existing .generated-values.env.
 
 set -euo pipefail
 
@@ -51,7 +52,7 @@ write_kv "coolify_postgres_password" "$(openssl rand -base64 32)"
 echo "Generated secrets written to:"
 echo "  ${OUT_FILE}"
 echo ""
-echo "How to apply:"
+echo "How to apply (writes group_vars/all/vars_local.yml — gitignored):"
 echo "  bash scripts/apply-generated-values.sh --stage 2"
 echo "  bash scripts/apply-generated-values.sh --stage 3"
 echo "  bash scripts/apply-generated-values.sh --key samba_password,pihole_password"

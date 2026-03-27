@@ -1,0 +1,15 @@
+---
+# Copy to vars_local.yml (gitignored) or let apply-generated-values.sh create it.
+# Real values here override placeholders in vars.yml for the same keys.
+#
+#   bash scripts/generate-values.sh
+#   bash scripts/apply-generated-values.sh --stage 2
+#
+immich_postgres_password: ""
+immich_typesense_api_key: ""
+samba_password: ""
+pihole_password: ""
+jwt_secret: ""
+authelia_sqlite_encryption_key: ""
+vnc_password: ""
+coolify_postgres_password: ""

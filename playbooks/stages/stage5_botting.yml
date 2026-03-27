@@ -86,7 +86,7 @@
           ;;
         vnc)
           echo "VNC connection: vnc://localhost:$((5900 + INSTANCE))"
-          echo "Password: Check group_vars/all/vars.yml"
+          echo "Password: Check group_vars/all/vars_local.yml (or vars.yml placeholders)"
           ;;
         exec)
           docker exec -it poe-instance-$INSTANCE bash

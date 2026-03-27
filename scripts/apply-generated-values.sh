@@ -4,7 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-VARS_FILE="${REPO_ROOT}/group_vars/all/vars.yml"
+# Secrets live here (gitignored). Ansible merges group_vars/all/*.yml; vars_local.yml sorts after vars.yml and overrides.
+VARS_LOCAL="${REPO_ROOT}/group_vars/all/vars_local.yml"
 GEN_FILE="${REPO_ROOT}/.generated-values.env"
 
 usage() {
@@ -16,21 +17,18 @@ Usage:
   bash scripts/apply-generated-values.sh --key samba_password,pihole_password
   bash scripts/apply-generated-values.sh --all
   bash scripts/apply-generated-values.sh --revert-last
-  bash scripts/apply-generated-values.sh --revert group_vars/all/vars.yml.bak.<timestamp>
+  bash scripts/apply-generated-values.sh --revert group_vars/all/vars_local.yml.bak.<timestamp>
+
+Secrets are written to group_vars/all/vars_local.yml (gitignored), not vars.yml.
 
 Options:
   --stage <2|3>      Apply all generated keys for a stage (repeatable)
   --key <csv>        Apply specific key(s), comma separated
   --all              Apply all generated keys
-  --revert-last      Restore the most recent vars backup
-  --revert <file>    Restore a specific vars backup file
+  --revert-last      Restore the most recent vars_local backup
+  --revert <file>    Restore a specific vars_local backup file
 EOF
 }
-
-if [[ ! -f "${VARS_FILE}" ]]; then
-  echo "Error: vars file not found at ${VARS_FILE}"
-  exit 1
-fi
 
 if [[ ! -f "${GEN_FILE}" ]]; then
   echo "Error: generated values file not found at ${GEN_FILE}"
@@ -107,13 +105,13 @@ if [[ "${REVERT_LAST}" == "true" || -n "${REVERT_FILE}" ]]; then
   fi
 
   if [[ "${REVERT_LAST}" == "true" ]]; then
-    latest_backup="$(ls -1t "${VARS_FILE}.bak."* 2>/dev/null | head -n 1 || true)"
+    latest_backup="$(ls -1t "${VARS_LOCAL}.bak."* 2>/dev/null | head -n 1 || true)"
     if [[ -z "${latest_backup}" ]]; then
-      echo "No backup files found matching ${VARS_FILE}.bak.*"
+      echo "No backup files found matching ${VARS_LOCAL}.bak.*"
       exit 1
     fi
-    cp "${latest_backup}" "${VARS_FILE}"
-    echo "Reverted ${VARS_FILE} from latest backup:"
+    cp "${latest_backup}" "${VARS_LOCAL}"
+    echo "Reverted ${VARS_LOCAL} from latest backup:"
     echo "  ${latest_backup}"
     exit 0
   fi
@@ -122,8 +120,8 @@ if [[ "${REVERT_LAST}" == "true" || -n "${REVERT_FILE}" ]]; then
     echo "Backup file not found: ${REVERT_FILE}"
     exit 1
   fi
-  cp "${REVERT_FILE}" "${VARS_FILE}"
-  echo "Reverted ${VARS_FILE} from backup:"
+  cp "${REVERT_FILE}" "${VARS_LOCAL}"
+  echo "Reverted ${VARS_LOCAL} from backup:"
   echo "  ${REVERT_FILE}"
   exit 0
 fi
@@ -148,8 +146,18 @@ for k in "${SELECTED_KEYS[@]}"; do
   fi
 done
 
-backup_file="${VARS_FILE}.bak.$(date +%Y%m%d%H%M%S)"
-cp "${VARS_FILE}" "${backup_file}"
+mkdir -p "$(dirname "${VARS_LOCAL}")"
+
+if [[ ! -f "${VARS_LOCAL}" ]]; then
+  cat > "${VARS_LOCAL}" <<'HEADER'
+---
+# Local secrets — applied by scripts/apply-generated-values.sh
+# This file is gitignored. Do not commit.
+HEADER
+fi
+
+backup_file="${VARS_LOCAL}.bak.$(date +%Y%m%d%H%M%S)"
+cp "${VARS_LOCAL}" "${backup_file}"
 
 escape_sed() {
   printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
@@ -173,13 +181,14 @@ for key in "${keys[@]}"; do
 
   escaped_value="$(escape_sed "${value}")"
 
-  # Keep values quoted in vars.yml.
-  if grep -qE "^${key}:" "${VARS_FILE}"; then
-    sed -i -E "s|^(${key}: ).*$|\1\"${escaped_value}\"|" "${VARS_FILE}"
-    updated=$((updated + 1))
+  if grep -qE "^${key}:" "${VARS_LOCAL}"; then
+    sed -i -E "s|^(${key}: ).*$|\1\"${escaped_value}\"|" "${VARS_LOCAL}"
+  else
+    echo "${key}: \"${value}\"" >> "${VARS_LOCAL}"
   fi
+  updated=$((updated + 1))
 done
 
-echo "Updated ${updated} values in ${VARS_FILE}"
+echo "Updated ${updated} values in ${VARS_LOCAL}"
 echo "Backup created at ${backup_file}"
 echo "Source file: ${GEN_FILE}"

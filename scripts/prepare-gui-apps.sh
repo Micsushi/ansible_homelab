@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# Tracked template only (GUI toggle is not a generated secret — stays in vars.yml)
 VARS_FILE="${REPO_ROOT}/group_vars/all/vars.yml"
 GUI_FILE="${REPO_ROOT}/group_vars/all/gui_apps.yml"
 
@@ -112,7 +113,7 @@ cp "${GUI_FILE}" "${backup_gui}"
   fi
 } > "${GUI_FILE}"
 
-# Enable GUI installs in vars.yml
+# Enable GUI installs in vars.yml (template; secrets remain in vars_local.yml)
 if grep -qE '^install_gui_apps:' "${VARS_FILE}"; then
   sed -i -E 's/^install_gui_apps:.*/install_gui_apps: true  # Enabled by scripts\/prepare-gui-apps.sh/' "${VARS_FILE}"
 else
