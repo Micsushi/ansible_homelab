@@ -1,8 +1,13 @@
 ---
-# Tracked defaults and placeholders (safe to commit).
-# Secrets live in group_vars/all/vars_local.yml (gitignored); Ansible merges it and it overrides.
-# Populate: bash scripts/generate-values.sh && bash scripts/apply-generated-values.sh --stage 2
-# See vars_local.yml.example
+# ════════════════════════════════════════════════════════════════════════════
+# vars.yml — TRACKED TEMPLATE (safe to commit, no real secrets here)
+#
+# Keys marked [LOCAL] must be overridden in group_vars/all/vars_local.yml
+# All other keys are defaults you may edit freely.
+#
+# Quickstart: bash scripts/setup-local-vars.sh  (interactive, handles everything)
+# Manual:     see group_vars/all/vars_local.yml.example
+# ════════════════════════════════════════════════════════════════════════════
 
 # Base Configuration
 username: "sushi"
@@ -10,7 +15,7 @@ docker_dir: /home/{{ username }}/docker_apps
 data_dir: /home/{{ username }}/data
 puid: "1000"
 pgid: "1000"
-ip_address: "10.0.0.80"  # Set to your server's LAN IP (used by Jellyfin client auto-discovery)
+ip_address: "10.0.0.80"  # [LOCAL] Put your real LAN IP in vars_local.yml instead
 timezone: "America/New_York"
 domain: "homelab.local"
 
@@ -43,24 +48,25 @@ deploy_jellyfin: true
 deploy_pihole: true
 
 # Immich Configuration
-immich_postgres_password: "<immich_postgres_password>"
-immich_typesense_api_key: "<immich_typesense_api_key>"
-# Set immich_auto_admin_setup to true AND fill in the three vars below to auto-create the first admin
+immich_postgres_password: "<immich_postgres_password>"  # [LOCAL] generated secret
+immich_typesense_api_key: "<immich_typesense_api_key>"  # [LOCAL] generated secret
+# Auto-admin setup: enable below; set the three [LOCAL] keys in vars_local.yml
 immich_auto_admin_setup: true
-immich_admin_email: ""       # e.g. you@example.com
-immich_admin_name: ""        # e.g. sushi
-immich_admin_password: ""    # strong password for Immich admin account
+immich_admin_email: ""       # [LOCAL] e.g. you@example.com
+immich_admin_name: ""        # [LOCAL] e.g. sushi
+immich_admin_password: ""    # [LOCAL] strong password for Immich admin account
 
 # Samba Configuration
-samba_password: "<samba_password>"
+samba_password: "<samba_password>"  # [LOCAL] generated secret
+
 # Jellyfin Configuration
 # Set jellyfin_auto_setup: true to auto-run the setup wizard and add media libraries
 jellyfin_auto_setup: true
 jellyfin_admin_username: "{{ username }}"
-jellyfin_admin_password: ""  # strong password for Jellyfin admin account
+jellyfin_admin_password: ""  # [LOCAL] strong password for Jellyfin admin account
 
 # Pi-hole Configuration
-pihole_password: "<pihole_password>"
+pihole_password: "<pihole_password>"  # [LOCAL] generated secret
 pihole_web_port: "8053"  # Avoids port 80 conflict with Traefik in Stage 3
 pihole_upstream_dns:
   - "1.1.1.1"

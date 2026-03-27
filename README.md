@@ -153,20 +153,39 @@ cd ansible_homelab
 localhost ansible_connection=local
 ```
 
-3) Edit **non-secret** base values in `group_vars/all/vars.yml` (tracked template/defaults):
+3) Edit **base identity / defaults** in `group_vars/all/vars.yml` (tracked template). These are not generated passwords, but **`ip_address` is network-identifying** (like a home LAN IP). If the repo is public or shared, put **`ip_address` in `group_vars/all/vars_local.yml`** instead so it stays gitignored; Ansible merges and `vars_local.yml` wins.
 
 ```yaml
+# group_vars/all/vars.yml — typical tracked values
 username: "your_linux_user"
 puid: "1000"
 pgid: "1000"
-ip_address: "127.0.0.1"
 timezone: "America/Denver"
 domain: "homelab.local"
+```
+
+Optional (gitignored), e.g. `group_vars/all/vars_local.yml`:
+
+```yaml
+---
+ip_address: "10.0.0.80"
+```
+
+On the target host, to align values:
+
+```bash
+whoami          # username
+id -u           # puid
+id -g           # pgid
+timedatectl     # timezone (optional)
+hostname -I | awk '{print $1}'   # ip_address — first IPv4; confirm it is your LAN (not VPN)
+ip -4 addr show scope global     # all global IPv4 addresses (pick your LAN / Wi‑Fi inet)
 ```
 
 Notes:
 - `username` should match `whoami`
 - `puid`/`pgid` should match `id -u` and `id -g`
+- `ip_address` should match the address clients use to reach this host (often the `inet` on `wlan0`/`eth0`; use `vars_local.yml` if you do not want it in git)
 - `domain` can stay a placeholder until Stage 3
 
 4) Generate/apply **generated secrets** (written to **`group_vars/all/vars_local.yml`**, gitignored — not `vars.yml`):

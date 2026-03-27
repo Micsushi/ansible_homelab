@@ -1,15 +1,46 @@
 ---
-# Copy to vars_local.yml (gitignored) or let apply-generated-values.sh create it.
-# Real values here override placeholders in vars.yml for the same keys.
+# vars_local.yml.example
+# ────────────────────────────────────────────────────────────────────
+# DO NOT RENAME THIS FILE TO vars_local.yml — it is a reference only.
+# The real vars_local.yml is gitignored (never committed).
 #
-#   bash scripts/generate-values.sh
-#   bash scripts/apply-generated-values.sh --stage 2
+# Quickstart: run the interactive setup script which populates everything:
+#   bash scripts/setup-local-vars.sh
 #
+# Or manually: copy relevant lines below to group_vars/all/vars_local.yml
+#   and fill in real values. Keys here override matching placeholders in
+#   vars.yml (Ansible merges both; vars_local.yml wins).
+# ────────────────────────────────────────────────────────────────────
+
+# ── Network identity (private — your LAN IP) ─────────────────────────────
+ip_address: "10.0.0.80"
+
+# ── Stage 2 generated secrets (auto-populated by setup-local-vars.sh) ────
 immich_postgres_password: ""
 immich_typesense_api_key: ""
 samba_password: ""
 pihole_password: ""
+
+# ── Stage 2 manual admin credentials (you choose these) ─────────────────
+immich_admin_email: "you@example.com"
+immich_admin_name: "sushi"
+immich_admin_password: ""
+
+jellyfin_admin_password: ""
+
+# ── Stage 3 generated secrets (auto-populated by setup-local-vars.sh) ────
 jwt_secret: ""
 authelia_sqlite_encryption_key: ""
 vnc_password: ""
 coolify_postgres_password: ""
+
+# ── Stage 3 manual values (you must provide these for Stage 3 to work) ───
+# domain: "yourdomain.com"
+# cloudflare_email: ""
+# cloudflare_api_key: ""
+# traefik_basic_auth_hash: ""
+# google_mail: ""
+# google_insecure_app_pass: ""
+# authelia_admin_mail: ""
+# authelia_admin_argon2id_pass: ""
+# tailscale_auth_key: ""
