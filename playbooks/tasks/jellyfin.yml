@@ -1,4 +1,15 @@
 ---
+# Jellyfin - Media server
+# Port 8096 exposed for local access (pre-Traefik Stage 3)
+# Set ip_address in vars.yml to your server's LAN IP for client auto-discovery
+#
+# jellyfin_auto_setup: true will:
+#   1. Run through the startup wizard automatically (no browser needed)
+#   2. Create the admin user with jellyfin_admin_username / jellyfin_admin_password
+#   3. Add Movies (/data/media/movies) and TV Shows (/data/media/tv) libraries
+#   4. Enable remote access
+# Set jellyfin_auto_setup: false to do first-run setup manually in the browser at :8096
+
 - name: Create jellyfin container
   community.docker.docker_container:
     name: jellyfin
@@ -10,10 +21,12 @@
       PUID: "{{ puid }}"
       PGID: "{{ pgid }}"
       TZ: "{{ timezone }}"
-      JELLYFIN_PublishedServerUrl: "{{ ip_address }}"
+      JELLYFIN_PublishedServerUrl: "http://{{ ip_address }}:8096"
     volumes:
       - "{{ docker_dir }}/jellyfin/config:/config"
       - "{{ data_dir }}/media:/data/media"
+    ports:
+      - "8096:8096"
     networks:
       - name: homelab
     labels:
@@ -29,3 +42,146 @@
       traefik.http.routers.jellyfin-secure.middlewares: "authelia@docker"
       traefik.http.services.jellyfin.loadbalancer.server.port: "8096"
       traefik.docker.network: "homelab"
+
+- name: Wait for Jellyfin API to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/health"
+    method: GET
+    status_code: 200
+  register: jellyfin_health
+  retries: 24
+  delay: 5
+  until: jellyfin_health.status == 200
+  when: jellyfin_auto_setup | default(false)
+
+- name: Validate Jellyfin admin credentials are set
+  ansible.builtin.assert:
+    that:
+      - jellyfin_admin_username is defined
+      - jellyfin_admin_username | length > 0
+      - jellyfin_admin_password is defined
+      - jellyfin_admin_password | length > 0
+    fail_msg: "Set jellyfin_admin_username and jellyfin_admin_password when jellyfin_auto_setup=true."
+  when: jellyfin_auto_setup | default(false)
+
+# Startup wizard tasks — return 403 if already completed, which is fine on re-runs
+- name: Set Jellyfin startup configuration (language/metadata)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/Startup/Configuration"
+    method: POST
+    body_format: json
+    body:
+      UiCulture: "en-US"
+      MetadataCountryCode: "US"
+      PreferredMetadataLanguage: "en"
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-homelab", Version="1.0"'
+    status_code: [200, 204, 403]
+  changed_when: false
+  when: jellyfin_auto_setup | default(false)
+
+- name: Create Jellyfin admin user via startup wizard
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/Startup/User"
+    method: POST
+    body_format: json
+    body:
+      Name: "{{ jellyfin_admin_username }}"
+      Password: "{{ jellyfin_admin_password }}"
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-homelab", Version="1.0"'
+    status_code: [200, 204, 403]
+  register: jellyfin_user_created
+  changed_when: jellyfin_user_created.status in [200, 204]
+  when: jellyfin_auto_setup | default(false)
+
+- name: Configure Jellyfin remote access
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/Startup/RemoteAccess"
+    method: POST
+    body_format: json
+    body:
+      EnableRemoteAccess: true
+      EnableAutomaticPortMapping: false
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-homelab", Version="1.0"'
+    status_code: [200, 204, 403]
+  changed_when: false
+  when: jellyfin_auto_setup | default(false)
+
+- name: Complete Jellyfin startup wizard
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/Startup/Complete"
+    method: POST
+    body: "{}"
+    body_format: json
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-homelab", Version="1.0"'
+    status_code: [200, 204, 403]
+  register: jellyfin_wizard_done
+  changed_when: jellyfin_wizard_done.status in [200, 204]
+  when: jellyfin_auto_setup | default(false)
+
+# Library setup — authenticate first, then add Movies + TV libraries
+- name: Authenticate to Jellyfin to add libraries
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/Users/AuthenticateByName"
+    method: POST
+    body_format: json
+    body:
+      Username: "{{ jellyfin_admin_username }}"
+      Pw: "{{ jellyfin_admin_password }}"
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-homelab", Version="1.0"'
+      Content-Type: "application/json"
+    status_code: 200
+  register: jellyfin_auth
+  ignore_errors: true
+  when: jellyfin_auto_setup | default(false)
+
+- name: Add Jellyfin Movies library
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/Library/VirtualFolders?collectionType=movies&name=Movies&refreshLibrary=false"
+    method: POST
+    body_format: json
+    body:
+      Paths:
+        - "/data/media/movies"
+      LibraryOptions:
+        EnableRealtimeMonitor: true
+        SaveLocalMetadata: false
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-homelab", Version="1.0", Token="{{ jellyfin_auth.json.AccessToken }}"'
+    status_code: [200, 204]
+  ignore_errors: true
+  when:
+    - jellyfin_auto_setup | default(false)
+    - jellyfin_auth is not failed
+    - jellyfin_auth.json.AccessToken is defined
+
+- name: Add Jellyfin TV Shows library
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8096/Library/VirtualFolders?collectionType=tvshows&name=TV+Shows&refreshLibrary=false"
+    method: POST
+    body_format: json
+    body:
+      Paths:
+        - "/data/media/tv"
+      LibraryOptions:
+        EnableRealtimeMonitor: true
+        SaveLocalMetadata: false
+    headers:
+      Authorization: 'MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-homelab", Version="1.0", Token="{{ jellyfin_auth.json.AccessToken }}"'
+    status_code: [200, 204]
+  ignore_errors: true
+  when:
+    - jellyfin_auto_setup | default(false)
+    - jellyfin_auth is not failed
+    - jellyfin_auth.json.AccessToken is defined
+
+- name: Jellyfin setup summary
+  ansible.builtin.debug:
+    msg:
+      - "Jellyfin is running at http://{{ ip_address }}:8096"
+      - "{{ 'Admin user created: ' + jellyfin_admin_username if jellyfin_auto_setup | default(false) else 'Complete setup wizard manually at http://' + ip_address + ':8096' }}"
+  when: jellyfin_auto_setup is defined

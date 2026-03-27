@@ -5,7 +5,7 @@ docker_dir: /home/{{ username }}/docker_apps
 data_dir: /home/{{ username }}/data
 puid: "1000"
 pgid: "1000"
-ip_address: "127.0.0.1"
+ip_address: "10.0.0.80"  # Set to your server's LAN IP (used by Jellyfin client auto-discovery)
 timezone: "America/New_York"
 domain: "homelab.local"
 
@@ -40,12 +40,35 @@ deploy_pihole: true
 # Immich Configuration
 immich_postgres_password: "<immich_postgres_password>"
 immich_typesense_api_key: "<immich_typesense_api_key>"
+# Set immich_auto_admin_setup to true AND fill in the three vars below to auto-create the first admin
+immich_auto_admin_setup: true
+immich_admin_email: ""       # e.g. you@example.com
+immich_admin_name: ""        # e.g. sushi
+immich_admin_password: ""    # strong password for Immich admin account
 
 # Samba Configuration
 samba_password: "<samba_password>"
+# Jellyfin Configuration
+# Set jellyfin_auto_setup: true to auto-run the setup wizard and add media libraries
+jellyfin_auto_setup: true
+jellyfin_admin_username: "{{ username }}"
+jellyfin_admin_password: ""  # strong password for Jellyfin admin account
 
 # Pi-hole Configuration
 pihole_password: "<pihole_password>"
+pihole_web_port: "8053"  # Avoids port 80 conflict with Traefik in Stage 3
+pihole_upstream_dns:
+  - "1.1.1.1"
+  - "8.8.8.8"
+# Set pihole_auto_setup: true to auto-add adlists via API after startup
+pihole_auto_setup: true
+pihole_adlists:
+  - url: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+    comment: "StevenBlack unified hosts (ads + malware)"
+  - url: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt"
+    comment: "HaGeZi Pro blocklist"
+  - url: "https://adaway.org/hosts.txt"
+    comment: "AdAway default blocklist"
 
 # Stage 3: Monitoring and Security Services
 deploy_traefik: true  # Reverse proxy (required for most services)

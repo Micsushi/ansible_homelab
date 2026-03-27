@@ -41,6 +41,8 @@ terraform.rc
 
 # Generated local secrets
 .generated-values.env
+group_vars/all/vars.yml.bak.*
+group_vars/all/gui_apps.yml.bak.*
 
 # Local/private inventory override
 inventory.local

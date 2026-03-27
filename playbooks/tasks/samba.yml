@@ -1,5 +1,9 @@
 ---
 # Samba - File sharing server
+# Shares:
+#   shared  → read-write, your home shared folder
+#   media   → read-only, Jellyfin media library (movies + TV)
+#   photos  → read-write, Immich photos library
 
 - name: Create Samba config directory
   ansible.builtin.file:
@@ -9,29 +13,6 @@
     group: "{{ username }}"
     mode: "0755"
 
-- name: Create Samba configuration file
-  ansible.builtin.copy:
-    content: |
-      [global]
-      workgroup = WORKGROUP
-      server string = Samba Server
-      security = user
-      map to guest = Bad User
-      dns proxy = no
-
-      [shared]
-      path = {{ data_dir }}/shared
-      browseable = yes
-      writable = yes
-      guest ok = no
-      valid users = {{ username }}
-      create mask = 0664
-      directory mask = 0775
-    dest: "{{ docker_dir }}/samba/config/smb.conf"
-    owner: "{{ username }}"
-    group: "{{ username }}"
-    mode: "0644"
-
 - name: Create Samba container
   community.docker.docker_container:
     name: samba
@@ -39,13 +20,31 @@
     state: started
     restart_policy: unless-stopped
     volumes:
-      - "{{ docker_dir }}/samba/config:/etc/samba"
       - "{{ data_dir }}/shared:/shared"
+      - "{{ data_dir }}/media:/media:ro"
+      - "{{ data_dir }}/photos:/photos"
     networks:
       - name: homelab
     ports:
       - "139:139"
       - "445:445"
-    command: "-s 'shared;/shared;yes;no;no;{{ username }}' -u '{{ username }}:{{ samba_password | default('changeme') }}'"
+    command:
+      - "-u"
+      - "{{ username }};{{ samba_password | default('changeme') }}"
+      - "-s"
+      - "shared;/shared;yes;no;no;{{ username }}"
+      - "-s"
+      - "media;/media;yes;yes;no;{{ username }}"
+      - "-s"
+      - "photos;/photos;yes;no;no;{{ username }}"
     env:
       TZ: "{{ timezone }}"
+
+- name: Samba setup summary
+  ansible.builtin.debug:
+    msg:
+      - "Samba shares available at \\\\{{ ip_address }}\\"
+      - "  shared  → read-write  ({{ data_dir }}/shared)"
+      - "  media   → read-only   ({{ data_dir }}/media)"
+      - "  photos  → read-write  ({{ data_dir }}/photos)"
+      - "Connect with user: {{ username }} and your samba_password"

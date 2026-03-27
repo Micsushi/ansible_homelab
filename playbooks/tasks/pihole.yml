@@ -1,5 +1,14 @@
 ---
 # Pi-hole - DNS and ad blocker
+# Web admin runs on port 8053 (not 80) to avoid conflict with Traefik in Stage 3
+# DNS still listens on port 53 (TCP+UDP) as normal
+#
+# pihole_auto_setup: true will:
+#   1. Wait for Pi-hole API readiness
+#   2. Authenticate with pihole_password to get a session token
+#   3. Add all URLs in pihole_adlists as block lists
+#   4. Trigger a gravity update to apply the new lists
+# Set pihole_auto_setup: false to add adlists manually in the web UI at :8053/admin
 
 - name: Create Pi-hole directories
   ansible.builtin.file:
@@ -26,13 +35,15 @@
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "80:80"
-      - "443:443"
+      - "{{ pihole_web_port | default('8053') }}:{{ pihole_web_port | default('8053') }}"
     env:
       TZ: "{{ timezone }}"
       WEBPASSWORD: "{{ pihole_password | default('changeme') }}"
-      DNS1: "1.1.1.1"
-      DNS2: "8.8.8.8"
+      FTLCONF_webserver_api_password: "{{ pihole_password | default('changeme') }}"
+      FTLCONF_webserver_port: "{{ pihole_web_port | default('8053') }}"
+      FTLCONF_dns_upstreams: "{{ (pihole_upstream_dns | default(['1.1.1.1', '8.8.8.8'])) | join(';') }}"
+      DNS1: "{{ (pihole_upstream_dns | default(['1.1.1.1', '8.8.8.8']))[0] }}"
+      DNS2: "{{ (pihole_upstream_dns | default(['1.1.1.1', '8.8.8.8']))[1] | default((pihole_upstream_dns | default(['1.1.1.1', '8.8.8.8']))[0]) }}"
     cap_add:
       - NET_ADMIN
     labels:
@@ -46,5 +57,71 @@
       traefik.http.routers.pihole-secure.tls: "true"
       traefik.http.routers.pihole-secure.service: "pihole"
       traefik.http.routers.pihole-secure.middlewares: "authelia@docker"
-      traefik.http.services.pihole.loadbalancer.server.port: "80"
+      traefik.http.services.pihole.loadbalancer.server.port: "{{ pihole_web_port | default('8053') }}"
       traefik.docker.network: "homelab"
+
+- name: Wait for Pi-hole API to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pihole_web_port | default('8053') }}/api/info/version"
+    method: GET
+    status_code: 200
+  register: pihole_api_ready
+  retries: 20
+  delay: 5
+  until: pihole_api_ready.status == 200
+  when: pihole_auto_setup | default(false)
+
+- name: Authenticate to Pi-hole API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pihole_web_port | default('8053') }}/api/auth"
+    method: POST
+    body_format: json
+    body:
+      password: "{{ pihole_password }}"
+    status_code: 200
+  register: pihole_auth
+  when: pihole_auto_setup | default(false)
+
+- name: Add Pi-hole block adlists
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pihole_web_port | default('8053') }}/api/lists"
+    method: POST
+    body_format: json
+    body:
+      address: "{{ item.url }}"
+      enabled: true
+      type: "block"
+      comment: "{{ item.comment | default('Added by Ansible') }}"
+    headers:
+      X-FTL-SID: "{{ pihole_auth.json.session.sid }}"
+    status_code: [201, 409]
+  loop: "{{ pihole_adlists | default([]) }}"
+  changed_when: true
+  ignore_errors: true
+  when:
+    - pihole_auto_setup | default(false)
+    - pihole_auth is not failed
+    - pihole_adlists | default([]) | length > 0
+
+- name: Trigger Pi-hole gravity update to apply new adlists
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pihole_web_port | default('8053') }}/api/gravity/run"
+    method: POST
+    body_format: json
+    body: {}
+    headers:
+      X-FTL-SID: "{{ pihole_auth.json.session.sid }}"
+    status_code: [200, 202]
+  ignore_errors: true
+  when:
+    - pihole_auto_setup | default(false)
+    - pihole_auth is not failed
+    - pihole_adlists | default([]) | length > 0
+
+- name: Pi-hole setup summary
+  ansible.builtin.debug:
+    msg:
+      - "Pi-hole web admin: http://{{ ip_address }}:{{ pihole_web_port | default('8053') }}/admin"
+      - "DNS server: {{ ip_address }}:53"
+      - "Upstream DNS: {{ pihole_upstream_dns | default(['1.1.1.1', '8.8.8.8']) | join(', ') }}"
+      - "{{ 'Adlists added: ' + (pihole_adlists | default([]) | length | string) if pihole_auto_setup | default(false) else 'Add adlists manually in the web UI' }}"

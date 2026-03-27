@@ -1,5 +1,10 @@
 ---
 # Immich - Self-hosted photo and video backup solution
+# Uses the official 2025 docker-compose layout:
+#   - valkey (redis replacement)
+#   - vectorchord-enabled postgres (required for Immich vector search)
+#   - typesense removed (deprecated upstream)
+#   - server listens on port 2283 directly (no start-server.sh entrypoint)
 
 - name: Create Immich docker-compose file
   ansible.builtin.copy:
@@ -9,19 +14,17 @@
       services:
         immich-server:
           container_name: immich_server
-          image: ghcr.io/immich-app/immich-server:latest
-          entrypoint: ["/bin/sh", "./start-server.sh"]
+          image: ghcr.io/immich-app/immich-server:release
           volumes:
-            - {{ docker_dir }}/immich/upload:/usr/src/app/upload
-            - {{ data_dir }}/photos:/usr/src/app/library
+            - {{ data_dir }}/photos:/usr/src/app/upload
+            - /etc/localtime:/etc/localtime:ro
           env_file:
             - .env
           ports:
-            - "2283:3001"
+            - "2283:2283"
           depends_on:
             - redis
-            - postgres
-            - typesense
+            - database
           restart: unless-stopped
           networks:
             - homelab
@@ -36,14 +39,14 @@
             traefik.http.routers.immich-secure.tls: "true"
             traefik.http.routers.immich-secure.service: "immich"
             traefik.http.routers.immich-secure.middlewares: "authelia@docker"
-            traefik.http.services.immich.loadbalancer.server.port: "3001"
+            traefik.http.services.immich.loadbalancer.server.port: "2283"
             traefik.docker.network: "homelab"
 
         immich-machine-learning:
           container_name: immich_machine_learning
-          image: ghcr.io/immich-app/immich-machine-learning:latest
+          image: ghcr.io/immich-app/immich-machine-learning:release
           volumes:
-            - {{ docker_dir }}/immich/machine-learning:/model-cache
+            - {{ docker_dir }}/immich/machine-learning:/cache
           env_file:
             - .env
           restart: unless-stopped
@@ -52,31 +55,24 @@
 
         redis:
           container_name: immich_redis
-          image: redis:alpine
+          image: valkey/valkey:8-bookworm
           volumes:
             - {{ docker_dir }}/immich/redis:/data
+          healthcheck:
+            test: redis-cli ping || exit 1
           restart: unless-stopped
           networks:
             - homelab
 
-        postgres:
+        database:
           container_name: immich_postgres
-          image: postgres:14
+          image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+          environment:
+            POSTGRES_PASSWORD: "{{ immich_postgres_password | default('changeme') }}"
+            POSTGRES_USER: "postgres"
+            POSTGRES_DB: "immich"
           volumes:
             - {{ docker_dir }}/immich/postgres:/var/lib/postgresql/data
-          env_file:
-            - .env
-          restart: unless-stopped
-          networks:
-            - homelab
-
-        typesense:
-          container_name: immich_typesense
-          image: typesense/typesense:0.24.1
-          volumes:
-            - {{ docker_dir }}/immich/typesense:/data
-          ports:
-            - "8108:8108"
           restart: unless-stopped
           networks:
             - homelab
@@ -94,18 +90,12 @@
     content: |
       # Immich Environment Variables
       UPLOAD_LOCATION={{ data_dir }}/photos
-      POSTGRES_USER=postgres
-      POSTGRES_PASSWORD={{ immich_postgres_password | default('changeme') }}
-      POSTGRES_DB=immich
-      DB_HOSTNAME=postgres
-      REDIS_HOSTNAME=redis
-      TYPESENSE_ENABLED=true
-      TYPESENSE_HOST=typesense
-      TYPESENSE_PORT=8108
-      TYPESENSE_PROTOCOL=http
-      TYPESENSE_API_KEY={{ immich_typesense_api_key | default('changeme') }}
-      IMMICH_WEB_URL=http://immich.{{ domain }}
-      IMMICH_SERVER_URL=http://immich-server:3001
+      DB_DATA_LOCATION={{ docker_dir }}/immich/postgres
+      DB_PASSWORD={{ immich_postgres_password | default('changeme') }}
+      DB_USERNAME=postgres
+      DB_DATABASE_NAME=immich
+      IMMICH_VERSION=release
+      TZ={{ timezone }}
     dest: "{{ docker_dir }}/immich/.env"
     owner: "{{ username }}"
     group: "{{ username }}"
@@ -118,3 +108,40 @@
     pull: true
     recreate: always
   become_user: "{{ username }}"
+
+- name: Wait for Immich API to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:2283/api/server-info"
+    method: GET
+    status_code: 200
+  register: immich_api_ready
+  retries: 20
+  delay: 5
+  until: immich_api_ready.status == 200
+  when: immich_auto_admin_setup | default(false)
+
+- name: Validate required Immich admin bootstrap vars
+  ansible.builtin.assert:
+    that:
+      - immich_admin_email is defined
+      - immich_admin_email | length > 0
+      - immich_admin_name is defined
+      - immich_admin_name | length > 0
+      - immich_admin_password is defined
+      - immich_admin_password | length > 0
+    fail_msg: "Set immich_admin_email, immich_admin_name, and immich_admin_password when immich_auto_admin_setup=true."
+  when: immich_auto_admin_setup | default(false)
+
+- name: Bootstrap Immich first admin user (optional)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:2283/api/auth/admin-sign-up"
+    method: POST
+    body_format: json
+    body:
+      email: "{{ immich_admin_email }}"
+      name: "{{ immich_admin_name }}"
+      password: "{{ immich_admin_password }}"
+    status_code: [201, 400]
+  register: immich_admin_signup
+  changed_when: immich_admin_signup.status == 201
+  when: immich_auto_admin_setup | default(false)
